@@ -772,6 +772,7 @@ public:
 	// https://github.com/vrm-c/vrm-specification/issues/205
 	// @export
 	Vector<Vector4> sphere_colliders; // DO NOT INITIALIZE HERE
+
 	// # Only use in editor
 	// @export
 	Color gizmo_color = Color::hex(0XFF00FFFF);
@@ -882,40 +883,58 @@ public:
 	// 		var mat: Material = surf_data_by_mesh[surf_idx].get("mat")
 	// 		mesh.add_surface(prim, arr, bsarr, lods, mat, name, fmt_compress_flags)
 
-	// func skeleton_rename(gstate : GLTFState, p_base_scene: Node, p_skeleton: Skeleton3D, p_bone_map: BoneMap):
-	// 	var skellen: int = p_skeleton.get_bone_count()
-	// 	for i in range(skellen):
-	// 		var bn: StringName = p_bone_map.find_profile_bone_name(p_skeleton.get_bone_name(i))
-	// 		if bn != StringName():
-	// 			p_skeleton.set_bone_name(i, bn)
-	// 	var gnodes = gstate.nodes
-	// 	for gnode in gnodes:
-	// 		var bn: StringName = p_bone_map.find_profile_bone_name(gnode.resource_name)
-	// 		if bn != StringName():
-	// 			gnode.resource_name = bn
-
-	// 	var nodes: Array[Node] = p_base_scene.find_children("*", "ImporterMeshInstance3D")
-	// 	while not nodes.is_empty():
-	// 		var mi = nodes.pop_back() as ImporterMeshInstance3D
-	// 		var skin: Skin = mi.skin
-	// 		if skin:
-	// 			var node = mi.get_node(mi.skeleton_path)
-	// 			if node and node is Skeleton3D and node == p_skeleton:
-	// 				skellen = skin.get_bind_count()
-	// 				for i in range(skellen):
-	// 					var bn: StringName = p_bone_map.find_profile_bone_name(skin.get_bind_name(i))
-	// 					if bn != StringName():
-	// 						skin.set_bind_name(i, bn)
-
-	// 	# Rename bones in all Nodes by calling method.
-	// 	nodes = p_base_scene.find_children("*")
-	// 	while not nodes.is_empty():
-	// 		var nd = nodes.pop_back()
-	// 		if nd.has_method(&"_notify_skeleton_bones_renamed"):
-	// 			nd.call(&"_notify_skeleton_bones_renamed", p_base_scene, p_skeleton, p_bone_map)
-
-	// 	p_skeleton.name = "GeneralSkeleton"
-	// 	p_skeleton.set_unique_name_in_owner(true)
+	void skeleton_rename(Ref<GLTFState> gstate, Node *p_base_scene, Skeleton3D *p_skeleton, Ref<BoneMap> p_bone_map) {
+		ERR_FAIL_NULL(p_skeleton);
+		ERR_FAIL_NULL(p_bone_map);
+		ERR_FAIL_NULL(p_base_scene);
+		ERR_FAIL_NULL(gstate);
+		int skellen = p_skeleton->get_bone_count();
+		for (int32_t bone_i = 0; bone_i < skellen; bone_i++) {
+			StringName bn = p_bone_map->find_profile_bone_name(p_skeleton->get_bone_name(bone_i));
+			if (bn != StringName()) {
+				p_skeleton->set_bone_name(bone_i, bn);
+			}
+		}
+		TypedArray<GLTFNode> gnodes = gstate->get_nodes();
+		for (int32_t node_i = 0; node_i < gnodes.size(); node_i++) {
+			Ref<GLTFNode> gnode = gnodes[node_i];
+			if (gnode.is_null()) {
+				continue;
+			}
+			StringName bn = p_bone_map->find_profile_bone_name(gnode->get_resource_name());
+			if (bn != StringName()) {
+				gnode->set_name(bn);
+			}
+		}
+		TypedArray<Node> nodes = p_base_scene->find_children("*", "ImporterMeshInstance3D");
+		while (!nodes.is_empty()) {
+			ImporterMeshInstance3D *mi = cast_to<ImporterMeshInstance3D>(nodes.pop_back());
+			Ref<Skin> skin = mi->get_skin();
+			if (skin.is_null()) {
+				continue;
+			}
+			Node *node = mi->get_node(mi->get_skeleton_path());
+			if (node && cast_to<Skeleton3D>(node) && node == p_skeleton) {
+				skellen = skin->get_bind_count();
+				for (int32_t bone_i = 0; bone_i < skellen; bone_i++) {
+					StringName bn = p_bone_map->find_profile_bone_name(skin->get_bind_name(bone_i));
+					if (bn != StringName()) {
+						skin->set_bind_name(bone_i, bn);
+					}
+				}
+			}
+		}
+		// Rename bones in all Nodes by calling method.
+		nodes = p_base_scene->find_children("*");
+		while (!nodes.is_empty()) {
+			Node *nd = cast_to<Node>(nodes.pop_back());
+			if (nd->has_method(&"_notify_skeleton_bones_renamed")) {
+				nd->call("_notify_skeleton_bones_renamed", p_base_scene, p_skeleton, p_bone_map);
+			}
+		}
+		p_skeleton->set_name("GeneralSkeleton");
+		p_skeleton->set_unique_name_in_owner(true);
+	}
 
 	// func rotate_scene_180_inner(p_node: Node3D, mesh_set: Dictionary, skin_set: Dictionary):
 	// 	if p_node is Skeleton3D:
