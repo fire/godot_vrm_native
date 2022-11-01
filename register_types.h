@@ -199,17 +199,22 @@ public:
 	// # When implementing UI moving with warp, the parent node to move with warp can be
 	// # specified if you don't want to make the object swaying with warp movement.",
 	// # Exactly one of the following must be set.
-	// @export var center_bone: String = ""
-	// @export var center_node: NodePath
+	// @export 
+	String center_bone;
+	// @export
+	NodePath center_node;
 
 	// # The radius of the sphere used for the collision detection with colliders.
-	// @export_range(0.0, 0.5)  var hit_radius: float = 0.02
+	// @export_range(0.0, 0.5)
+	float hit_radius = 0.02f;
 
 	// # bone name of the root bone of the swaying object, within skeleton.
-	// @export var root_bones : Array[String] = [].duplicate() # DO NOT INITIALIZE HERE
+	// @export 
+	TypedArray<String> root_bones; // DO NOT INITIALIZE HERE
 
 	// # Reference to the vrm_collidergroup for collisions with swaying objects.
-	// @export var collider_groups : Array = [].duplicate() # DO NOT INITIALIZE HERE
+	// @export 
+	Array collider_groups; // DO NOT INITIALIZE HERE
 
 	// # Props
 	Array verlets;
