@@ -199,7 +199,7 @@ public:
 	// # When implementing UI moving with warp, the parent node to move with warp can be
 	// # specified if you don't want to make the object swaying with warp movement.",
 	// # Exactly one of the following must be set.
-	// @export 
+	// @export
 	String center_bone;
 	// @export
 	NodePath center_node;
@@ -209,11 +209,11 @@ public:
 	float hit_radius = 0.02f;
 
 	// # bone name of the root bone of the swaying object, within skeleton.
-	// @export 
+	// @export
 	TypedArray<String> root_bones; // DO NOT INITIALIZE HERE
 
 	// # Reference to the vrm_collidergroup for collisions with swaying objects.
-	// @export 
+	// @export
 	Array collider_groups; // DO NOT INITIALIZE HERE
 
 	// # Props
@@ -222,16 +222,29 @@ public:
 	Variant center;
 	Skeleton3D *skel = nullptr;
 
-	// func setup(force: bool = false) -> void:
-	// 	if not self.root_bones.is_empty() && skel != null:
-	// 		if force || verlets.is_empty():
-	// 			if not verlets.is_empty():
-	// 				for verlet in verlets:
-	// 					verlet.reset(skel)
-	// 			verlets.clear()
-	// 			for go in root_bones:
-	// 				if typeof(go) != TYPE_NIL and not go.is_empty():
-	// 					setup_recursive(skel.find_bone(go), center)
+	void setup(bool force = false) {
+		if (!(!root_bones.is_empty() && skel) {
+			return;
+		}
+		if (!(force || verlets.is_empty())) {
+			return;
+		}
+		if (!verlets.is_empty()) {
+			for (int32_t verlet_i = 0; verlet_i < verlets.size(); verlet_i++) {
+				Ref<vrm_springbone> verlet = verlets[verlet_i];
+				if (verlet.is_null()) {
+					continue;
+				}
+				verlet->reset(skel);
+			}
+		}
+		verlets.clear();
+		for go in root_bones {
+			if (typeof(go) != TYPE_NIL && ! go.is_empty()) {
+				setup_recursive(skel.find_bone(go), center);
+			}
+		}
+	}
 
 	// func setup_recursive(id: int, center_tr) -> void:
 	// 	if skel.get_bone_children(id).is_empty():
