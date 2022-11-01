@@ -210,14 +210,14 @@ public:
 
 	// # bone name of the root bone of the swaying object, within skeleton.
 	// @export
-	TypedArray<String> root_bones; // DO NOT INITIALIZE HERE
+	Vector<String> root_bones; // DO NOT INITIALIZE HERE
 
 	// # Reference to the vrm_collidergroup for collisions with swaying objects.
 	// @export
 	Array collider_groups; // DO NOT INITIALIZE HERE
 
 	// # Props
-	Array verlets;
+	Vector<Ref<vrm_springbone>> verlets;
 	Array colliders;
 	Variant center;
 	Skeleton3D *skel = nullptr;
@@ -230,8 +230,7 @@ public:
 			return;
 		}
 		if (!verlets.is_empty()) {
-			for (int32_t verlet_i = 0; verlet_i < verlets.size(); verlet_i++) {
-				Ref<vrm_springbone> verlet = verlets[verlet_i];
+			for (Ref<vrm_springbone> verlet : verlets) {
 				if (verlet.is_null()) {
 					continue;
 				}
