@@ -1,0 +1,7 @@
+#!/usr/bin/env python
+
+Import('env')
+Import('env_modules')
+
+env_vrm_spring_bones = env_modules.Clone()
+env_vrm_spring_bones.add_source_files(env.modules_sources, "*.cpp")
