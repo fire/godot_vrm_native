@@ -101,6 +101,7 @@ public:
 		vrm_to_human_bone["rightThumbProximal"] = "RightThumbMetacarpal";
 	}
 };
+
 class vrm_meta_class : public Resource {
 public:
 	// VRM extension is for 3d humanoid avatars (and models) in VR applications.
@@ -223,26 +224,26 @@ public:
 	Skeleton3D *skel = nullptr;
 
 	void setup(bool force = false) {
-		if (!(!root_bones.is_empty() && skel) {
-			return;
-		}
-		if (!(force || verlets.is_empty())) {
-			return;
-		}
-		if (!verlets.is_empty()) {
-			for (Ref<vrm_springbone> verlet : verlets) {
-				if (verlet.is_null()) {
-					continue;
-				}
-				verlet->reset(skel);
-			}
-		}
-		verlets.clear();
-		for go in root_bones {
-			if (typeof(go) != TYPE_NIL && ! go.is_empty()) {
-				setup_recursive(skel.find_bone(go), center);
-			}
-		}
+		// if (!(!root_bones.is_empty() && skel)) {
+		// 	return;
+		// }
+		// if (!(force || verlets.is_empty())) {
+		// 	return;
+		// }
+		// if (!verlets.is_empty()) {
+		// 	for (Ref<vrm_springbone> verlet : verlets) {
+		// 		if (verlet.is_null()) {
+		// 			continue;
+		// 		}
+		// 		verlet->reset(skel);
+		// 	}
+		// }
+		// verlets.clear();
+		// for go in root_bones {
+		// 	if (typeof(go) != TYPE_NIL && ! go.is_empty()) {
+		// 		setup_recursive(skel.find_bone(go), center);
+		// 	}
+		// }
 	}
 
 	// func setup_recursive(id: int, center_tr) -> void:
@@ -918,7 +919,7 @@ public:
 			if (gnode.is_null()) {
 				continue;
 			}
-			StringName bn = p_bone_map->find_profile_bone_name(gnode->get_resource_name());
+			StringName bn = p_bone_map->find_profile_bone_name(gnode->get_name());
 			if (bn != StringName()) {
 				gnode->set_name(bn);
 			}
@@ -945,7 +946,7 @@ public:
 		nodes = p_base_scene->find_children("*");
 		while (!nodes.is_empty()) {
 			Node *nd = cast_to<Node>(nodes.pop_back());
-			if (nd->has_method(&"_notify_skeleton_bones_renamed")) {
+			if (nd->has_method("_notify_skeleton_bones_renamed")) {
 				nd->call("_notify_skeleton_bones_renamed", p_base_scene, p_skeleton, p_bone_map);
 			}
 		}
