@@ -1891,11 +1891,12 @@ public:
 		return poses;
 	}
 
-	Error _import_post(Ref<GLTFState> gstate, Node *node) {
+	virtual Error import_post(Ref<GLTFState> gstate, Node *node) override {
 		Ref<GLTFDocument> gltf;
 		gltf.instantiate();
+		node->replace_by(gltf->generate_scene(gstate, 30), true);
 		VRMTopLevel *root_node = memnew(VRMTopLevel);
-		root_node->replace_by(gltf->generate_scene(gstate, 30), true);
+		node->replace_by(root_node, true);
 		bool is_vrm_0 = true;
 		Dictionary gltf_json = gstate->get_json();
 		Dictionary extension = gltf_json["extensions"];
@@ -1975,7 +1976,7 @@ public:
 		if (!(collider_groups.size() > 0 || bone_groups.size() > 0)) {
 			return OK;
 		}
-		Node *secondary_node = root_node->get_node_or_null(NodePath("secondary"));
+		Node *secondary_node = node->get_node_or_null(NodePath("secondary"));
 		if (secondary_node == nullptr) {
 			secondary_node = memnew(Node3D);
 			root_node->add_child(secondary_node, true);
@@ -1984,7 +1985,7 @@ public:
 		}
 
 		NodePath secondary_path = root_node->get_path_to(secondary_node);
-		root_node->set("vrm_secondary", secondary_path);
+		node->set("vrm_secondary", secondary_path);
 
 		_parse_secondary_node(secondary_node, vrm_extension, gstate, pose_diffs, is_vrm_0);
 
@@ -2020,27 +2021,17 @@ public:
 
 class VRMEditorPlugin : public EditorPlugin {
 	GDCLASS(VRMEditorPlugin, EditorPlugin);
-	Ref<EditorSceneFormatImporter> import_plugin;
+	Ref<VRMEditorSceneFormatImporter> import_plugin;
 
 public:
 	virtual String get_name() const override { return "VRM"; }
 
-protected:
-	void _notification(int p_what) {
-		switch (p_what) {
-			case NOTIFICATION_ENTER_TREE: {
-				import_plugin.instantiate();
-				add_scene_format_importer_plugin(import_plugin);
-			} break;
-			case NOTIFICATION_EXIT_TREE: {
-				remove_scene_format_importer_plugin(import_plugin);
-			} break;
-		}
-	}
-
 public:
-	VRMEditorPlugin() {}
-	~VRMEditorPlugin() {}
+	VRMEditorPlugin() {
+				import_plugin.instantiate();
+				add_scene_format_importer_plugin(import_plugin);}
+	~VRMEditorPlugin() {
+				remove_scene_format_importer_plugin(import_plugin);}
 };
 // #endif
 

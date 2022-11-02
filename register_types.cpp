@@ -35,6 +35,7 @@
 VRMEditorPlugin *import_vrm = nullptr;
 
 static void _editor_init() {
+	import_vrm = memnew(VRMEditorPlugin);
 	EditorNode::get_singleton()->add_editor_plugin(import_vrm);
 }
 
@@ -43,11 +44,10 @@ void initialize_vrm_module(ModuleInitializationLevel p_level) {
 	}
 	// #ifdef TOOLS_ENABLED
 	if (p_level == MODULE_INITIALIZATION_LEVEL_EDITOR) {
-		GDREGISTER_CLASS(VRMEditorSceneFormatImporter);
-		GDREGISTER_CLASS(VRMEditorPlugin);
-		import_vrm = memnew(VRMEditorPlugin);
 	}
 	if (p_level == MODULE_INITIALIZATION_LEVEL_SERVERS) {
+		GDREGISTER_CLASS(VRMEditorSceneFormatImporter);
+		GDREGISTER_CLASS(VRMEditorPlugin);
 		EditorNode::add_init_callback(_editor_init);
 	}
 	//#endif
