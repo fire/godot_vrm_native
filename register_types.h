@@ -903,7 +903,13 @@ public:
 	String spec_version;
 };
 
-class VRMGLTFDocumentExtension : public GLTFDocumentExtension {
+class VRMEditorSceneFormatImporter : public EditorSceneFormatImporter {
+public:
+	virtual uint32_t get_import_flags() const { return IMPORT_SCENE; }
+	virtual void get_extensions(List<String> *r_extensions) const {
+		r_extensions->push_back("vrm");
+	}
+
 public:
 	Ref<Resource> vrm_met;
 	const Basis ROTATE_180_BASIS = Basis(Vector3(-1, 0, 0), Vector3(0, 1, 0), Vector3(0, 0, -1));
@@ -1066,69 +1072,69 @@ public:
 	}
 
 	TypedArray<Basis> skeleton_rotate(Node *p_base_scene, Skeleton3D *src_skeleton, Ref<BoneMap> p_bone_map) {
-		// Was skeleton_rename already invoked?
-		// TODO: Remove variable.
-		bool is_renamed = true;
 		Ref<SkeletonProfile> profile = p_bone_map->get_profile();
 		Skeleton3D *prof_skeleton = memnew(Skeleton3D);
 		for (int32_t bone_i = 0; bone_i < profile->get_bone_size(); bone_i++) {
+			StringName bone_name = profile->get_bone_name(bone_i);
+			if (prof_skeleton->find_bone(bone_name) != -1) {
+				continue;
+			}
 			// Add single bones.
-			prof_skeleton->add_bone(profile->get_bone_name(bone_i));
+			prof_skeleton->add_bone(bone_name);
 			prof_skeleton->set_bone_rest(bone_i, profile->get_reference_pose(bone_i));
 		}
 		for (int32_t bone_i = 0; bone_i < profile->get_bone_size(); bone_i++) {
 			// Set parents.
-			int32_t parent = profile->find_bone(profile->get_bone_parent(bone_i));
+			int32_t parent = prof_skeleton->find_bone(profile->get_bone_parent(bone_i));
 			if (parent >= 0) {
 				prof_skeleton->set_bone_parent(bone_i, parent);
 			}
 		}
+		// Overwrite axis.
+		TypedArray<Transform3D> old_skeleton_rest;
+		TypedArray<Transform3D> old_skeleton_global_rest;
+		for (int32_t bone_i = 0; bone_i < src_skeleton->get_bone_count(); bone_i++) {
+			old_skeleton_rest.push_back(src_skeleton->get_bone_rest(bone_i));
+			old_skeleton_global_rest.push_back(src_skeleton->get_bone_global_rest(bone_i));
+		}
+		TypedArray<Basis> diffs;
+		diffs.resize(src_skeleton->get_bone_count());
+		PackedInt32Array bones_to_process = src_skeleton->get_parentless_bones();
+		int32_t bpidx = 0;
+		while (bpidx < bones_to_process.size()) {
+			int src_idx = bones_to_process[bpidx];
+			bpidx += 1;
+			Vector<int> src_children = src_skeleton->get_bone_children(src_idx);
+			for (int32_t bone_i = 0; bone_i < src_children.size(); bone_i++) {
+				bones_to_process.push_back(src_children[bone_i]);
+			}
+			Basis tgt_rot;
+			String src_bone_name = src_skeleton->get_bone_name(src_idx);
+			if (!src_bone_name.is_empty()) {
+				Basis src_pg;
+				int src_parent_idx = src_skeleton->get_bone_parent(src_idx);
+				if (src_parent_idx >= 0) {
+					src_pg = src_skeleton->get_bone_global_rest(src_parent_idx).basis;
+				}
+				int prof_idx = profile->find_bone(src_bone_name);
+				if (prof_idx >= 0) {
+					tgt_rot = src_pg.inverse() * prof_skeleton->get_bone_global_rest(prof_idx).basis; // Mapped bone uses reference pose.
+				}
+			}
+			if (src_skeleton->get_bone_parent(src_idx) >= 0) {
+				diffs[src_idx] = tgt_rot.inverse() * Basis(diffs[src_skeleton->get_bone_parent(src_idx)]) * src_skeleton->get_bone_rest(src_idx).basis;
+			} else {
+				diffs[src_idx] = tgt_rot.inverse() * src_skeleton->get_bone_rest(src_idx).basis;
+			}
+			Basis diff;
+			if (src_skeleton->get_bone_parent(src_idx) >= 0) {
+				diff = diffs[src_skeleton->get_bone_parent(src_idx)];
+			}
+			src_skeleton->set_bone_rest(src_idx, Transform3D(tgt_rot, diff.xform(src_skeleton->get_bone_rest(src_idx).origin)));
+		}
+		prof_skeleton->queue_free();
+		return diffs;
 	}
-
-	// 	# Overwrite axis.
-	// 	var old_skeleton_rest: Array[Transform3D]
-	// 	var old_skeleton_global_rest: Array[Transform3D]
-	// 	for i in range(src_skeleton.get_bone_count()):
-	// 		old_skeleton_rest.push_back(src_skeleton.get_bone_rest(i))
-	// 		old_skeleton_global_rest.push_back(src_skeleton.get_bone_global_rest(i))
-
-	// 	var diffs: Array[Basis]
-	// 	diffs.resize(src_skeleton.get_bone_count())
-
-	// 	var bones_to_process: PackedInt32Array = src_skeleton.get_parentless_bones()
-	// 	var bpidx = 0
-	// 	while bpidx < len(bones_to_process):
-	// 		var src_idx: int = bones_to_process[bpidx]
-	// 		bpidx += 1
-	// 		var src_children: PackedInt32Array = src_skeleton.get_bone_children(src_idx)
-	// 		for bone_idx in src_children:
-	// 			bones_to_process.push_back(bone_idx)
-
-	// 		var tgt_rot: Basis
-	// 		var src_bone_name: StringName = StringName(src_skeleton.get_bone_name(src_idx)) if is_renamed else p_bone_map.find_profile_bone_name(src_skeleton.get_bone_name(src_idx))
-	// 		if src_bone_name != StringName():
-	// 			var src_pg: Basis
-	// 			var src_parent_idx: int = src_skeleton.get_bone_parent(src_idx);
-	// 			if src_parent_idx >= 0:
-	// 				src_pg = src_skeleton.get_bone_global_rest(src_parent_idx).basis;
-
-	// 			var prof_idx: int = profile.find_bone(src_bone_name)
-	// 			if prof_idx >= 0:
-	// 				tgt_rot = src_pg.inverse() * prof_skeleton.get_bone_global_rest(prof_idx).basis; # Mapped bone uses reference pose.
-
-	// 		if (src_skeleton.get_bone_parent(src_idx) >= 0):
-	// 			diffs[src_idx] = tgt_rot.inverse() * diffs[src_skeleton.get_bone_parent(src_idx)] * src_skeleton.get_bone_rest(src_idx).basis
-	// 		else:
-	// 			diffs[src_idx] = tgt_rot.inverse() * src_skeleton.get_bone_rest(src_idx).basis
-
-	// 		var diff: Basis
-	// 		if src_skeleton.get_bone_parent(src_idx) >= 0:
-	// 			diff = diffs[src_skeleton.get_bone_parent(src_idx)]
-
-	// 		src_skeleton.set_bone_rest(src_idx, Transform3D(tgt_rot, diff * src_skeleton.get_bone_rest(src_idx).origin))
-
-	// 	prof_skeleton.queue_free()
-	// 	return diffs
 
 	void apply_rotation(Node *p_base_scene, Skeleton3D *src_skeleton) {
 		// 	# Fix skin.
@@ -1412,7 +1418,7 @@ public:
 		// 			else:
 		// 				printerr("Mesh " + str(i) + " material " + str(surf_idx) + " name " + str(surfmat.resource_name) + " has no replacement material.")
 	}
-	Skeleton3D *_get_skel_godot_node(Ref<GLTFState> gstate, Array nodes, Array skeletons, int skel_id) {
+	Skeleton3D *_get_skel_godot_node(Ref<GLTFState> gstate, TypedArray<GLTFNode> nodes, Array skeletons, GLTFSkeletonIndex skel_id) {
 		// 	# There's no working direct way to convert from skeleton_id to node_id.
 		// 	# Bugs:
 		// 	# GLTFNode.parent is -1 if skeleton bone.
@@ -1420,9 +1426,12 @@ public:
 		// 	# get_scene_node(skeleton bone) works though might maybe return an attachment.
 		// 	# var skel_node_idx = nodes[gltfskel.roots[0]]
 		// 	# return gstate.get_scene_node(skel_node_idx) # as Skeleton
-		// 	for i in range(nodes.size()):
-		// 		if nodes[i].skeleton == skel_id:
-		// 			return gstate.get_scene_node(i)
+		for (int32_t node_i = 0; node_i < nodes.size(); node_i++) {
+			Ref<GLTFNode> gltf_node = cast_to<GLTFNode>(nodes[node_i]);
+			if (gltf_node->get_skeleton() == skel_id) {
+				return cast_to<Skeleton3D>(gstate->get_scene_node(node_i));
+			}
+		}
 		return nullptr;
 	}
 
@@ -1874,15 +1883,6 @@ public:
 		return true;
 	}
 
-	virtual Error import_preflight(Ref<GLTFState> gstate) override {
-		Dictionary gltf_json_parsed = gstate->get_json();
-		if (!_add_vrm_nodes_to_skin(gltf_json_parsed)) {
-			print_error("Failed to find required VRM keys in json");
-			return ERR_INVALID_DATA;
-		}
-		return OK;
-	}
-
 	TypedArray<Basis> apply_retarget(Ref<GLTFState> gstate, Node *root_node, Skeleton3D *skeleton, Ref<BoneMap> bone_map) {
 		NodePath skeletonPath = root_node->get_path_to(skeleton);
 		skeleton_rename(gstate, root_node, skeleton, bone_map);
@@ -1891,17 +1891,25 @@ public:
 		return poses;
 	}
 
-	virtual Error import_post(Ref<GLTFState> gstate, Node *node) override {
+	virtual Node *import_scene(const String &p_path, uint32_t p_flags, const HashMap<StringName, Variant> &p_options, int p_bake_fps, List<String> *r_missing_deps, Error *r_err = nullptr) {
+		Ref<GLTFState> gstate;
+		gstate.instantiate();
 		Ref<GLTFDocument> gltf;
 		gltf.instantiate();
-		node->replace_by(gltf->generate_scene(gstate, 30), true);
+		Error err = gltf->append_from_file(p_path, gstate, p_flags, p_bake_fps, p_path.get_base_dir());
+		ERR_FAIL_COND_V(err != OK, nullptr);
+		Dictionary gltf_json_parsed = gstate->get_json();
+		if (!_add_vrm_nodes_to_skin(gltf_json_parsed)) {
+			print_error("Failed to find required VRM keys in json");
+			return nullptr;
+		}
+		Node * original_root_node = gltf->generate_scene(gstate, 30);
 		VRMTopLevel *root_node = memnew(VRMTopLevel);
-		node->replace_by(root_node, true);
+		original_root_node->replace_by(root_node, true);
 		bool is_vrm_0 = true;
 		Dictionary gltf_json = gstate->get_json();
 		Dictionary extension = gltf_json["extensions"];
 		Dictionary vrm_extension = extension["VRM"];
-
 		Dictionary human_bone_to_idx;
 		// Ignoring in ["humanoid"]: armStretch, legStretch, upperArmTwist
 		// lowerArmTwist, upperLegTwist, lowerLegTwist, feetSpacing,
@@ -1911,42 +1919,38 @@ public:
 		for (int32_t human_bone_i = 0; human_bone_i < human_bones.keys().size(); human_bone_i++) {
 			Dictionary human_bone = human_bones[human_bones.keys()[human_bone_i]];
 			human_bone_to_idx[human_bone["bone"]] = int(human_bone["node"]);
-			// Unity Mecanim properties:
+			// properties:
 			// Ignoring: useDefaultValues
 			// Ignoring: min
 			// Ignoring: max
 			// Ignoring: center
 			// Ingoring: axisLength
 		}
-
 		TypedArray<GLTFSkeleton> skeletons = gstate->get_skeletons();
 		Ref<GLTFNode> hipsNode = gstate->get_nodes()[human_bone_to_idx["hips"]];
-		ERR_FAIL_NULL_V_MSG(hipsNode, ERR_INVALID_DATA, "Cannot import VRM. There is no hip bone defined.");
+		ERR_FAIL_NULL_V_MSG(hipsNode, nullptr, "Cannot import VRM. There is no hip bone defined.");
 		Skeleton3D *skeleton = _get_skel_godot_node(gstate, gstate->get_nodes(), skeletons, hipsNode->get_skeleton());
 		Array gltfnodes = gstate->get_nodes();
-
 		Ref<BoneMap> humanBones;
 		humanBones.instantiate();
 		humanBones->set_profile(memnew(SkeletonProfileHumanoid));
-
 		vrm_constants_class vrmconst_inst = vrm_constants_class(is_vrm_0); //vrm 0.0
 		for (int32_t human_bone_name_i = 0; human_bone_name_i < human_bone_to_idx.keys().size(); human_bone_name_i++) {
 			String human_bone_name = human_bone_to_idx.keys()[human_bone_name_i];
 			Ref<Resource> human_bone = human_bone_to_idx[human_bone_name];
-			ERR_CONTINUE(human_bone.is_null());
-			String resource_name = human_bone->get_name();
-			humanBones->set_skeleton_bone_name(vrmconst_inst.vrm_to_human_bone[resource_name], resource_name);
+			if (human_bone.is_null()) {
+				continue;
+			}
+			String profile_name = vrmconst_inst.vrm_to_human_bone[human_bone->get_name()];
+			humanBones->set_skeleton_bone_name(profile_name, human_bone_name);
 		}
-
 		if (is_vrm_0) {
 			// VRM 0.0 has models facing backwards due to a spec error (flipped z instead of x).
 			print_line("Pre-rotate the VRM 0.0 model.");
 			rotate_scene_180(root_node);
 			print_line("Post-rotate the VRM 0.0 model.");
 		}
-
 		bool do_retarget = true;
-
 		TypedArray<Basis> pose_diffs;
 		if (do_retarget) {
 			pose_diffs = apply_retarget(gstate, root_node, skeleton, humanBones);
@@ -1955,65 +1959,34 @@ public:
 				pose_diffs.append(Basis());
 			}
 		}
-
 		_update_materials(vrm_extension, gstate);
-
 		AnimationPlayer *animplayer = memnew(AnimationPlayer);
 		animplayer->set_name("anim");
 		root_node->add_child(animplayer, true);
 		animplayer->set_owner(root_node);
 		_create_animation_player(animplayer, vrm_extension, gstate, human_bone_to_idx, pose_diffs);
-
 		Ref<Resource> vrm_meta = _create_meta(root_node, animplayer, vrm_extension, gstate, skeleton, humanBones, human_bone_to_idx, pose_diffs);
 		root_node->set("vrm_meta", vrm_meta);
 		root_node->set("vrm_secondary", NodePath());
-
 		if (!vrm_extension.has("secondaryAnimation")) {
-			return OK;
+			return root_node;
 		}
 		Array collider_groups = vrm_extension["secondaryAnimation"].get("colliderGroups");
 		Array bone_groups = vrm_extension["secondaryAnimation"].get("boneGroups");
 		if (!(collider_groups.size() > 0 || bone_groups.size() > 0)) {
-			return OK;
+			return root_node;
 		}
-		Node *secondary_node = node->get_node_or_null(NodePath("secondary"));
+		Node *secondary_node = root_node->get_node_or_null(NodePath("secondary"));
 		if (secondary_node == nullptr) {
 			secondary_node = memnew(Node3D);
 			root_node->add_child(secondary_node, true);
 			secondary_node->set_owner(root_node);
 			secondary_node->set_name("secondary");
 		}
-
 		NodePath secondary_path = root_node->get_path_to(secondary_node);
-		node->set("vrm_secondary", secondary_path);
-
+		root_node->set("vrm_secondary", secondary_path);
 		_parse_secondary_node(secondary_node, vrm_extension, gstate, pose_diffs, is_vrm_0);
-
-		return OK;
-	}
-};
-
-class VRMEditorSceneFormatImporter : public EditorSceneFormatImporter {
-public:
-	virtual uint32_t get_import_flags() const { return IMPORT_SCENE; }
-	virtual void get_extensions(List<String> *r_extensions) const {
-		r_extensions->push_back("vrm");
-	}
-	virtual Node *import_scene(const String &p_path, uint32_t p_flags, const HashMap<StringName, Variant> &p_options, int p_bake_fps, List<String> *r_missing_deps, Error *r_err = nullptr) {
-		Ref<GLTFDocument> gltf;
-		gltf.instantiate();
-		Ref<VRMGLTFDocumentExtension> extension;
-		extension.instantiate();
-		TypedArray<GLTFDocumentExtension> extension_array = gltf->get_extensions();
-		extension_array.push_back(extension);
-		gltf->set_extensions(extension_array);
-		Ref<GLTFState> state;
-		state.instantiate();
-		Error err = gltf->append_from_file(p_path, state, p_flags, p_bake_fps);
-		if (err != OK) {
-			return nullptr;
-		}
-		return gltf->generate_scene(state, p_bake_fps);
+		return root_node;
 	}
 	virtual void get_import_options(const String &p_path, List<ResourceImporter::ImportOption> *r_options) {}
 	virtual Variant get_option_visibility(const String &p_path, bool p_for_animation, const String &p_option, const HashMap<StringName, Variant> &p_options) { return Variant(); }
@@ -2028,10 +2001,12 @@ public:
 
 public:
 	VRMEditorPlugin() {
-				import_plugin.instantiate();
-				add_scene_format_importer_plugin(import_plugin);}
+		import_plugin.instantiate();
+		add_scene_format_importer_plugin(import_plugin);
+	}
 	~VRMEditorPlugin() {
-				remove_scene_format_importer_plugin(import_plugin);}
+		remove_scene_format_importer_plugin(import_plugin);
+	}
 };
 // #endif
 
