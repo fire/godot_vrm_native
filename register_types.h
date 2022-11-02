@@ -102,6 +102,116 @@ public:
 	}
 };
 
+
+class VRMTopLevel : public Node3D {
+	NodePath vrm_skeleton;
+	NodePath vrm_animplayer;
+	NodePath VRMSecondary;
+	Ref<Resource> vrm_meta;
+	bool update_secondary_fixed = false;
+	bool update_in_editor = false;
+	bool gizmo_spring_bone = false;
+	Color gizmo_spring_bone_color = Color(1, 1, 0.878431, 1);
+
+public:
+	NodePath get_vrm_skeleton() {
+		return vrm_skeleton;
+	}
+	void set_vrm_skeleton(NodePath p_path) {
+		vrm_skeleton = p_path;
+	}
+	NodePath get_vrm_animplayer() {
+		return vrm_animplayer;
+	}
+	void set_vrm_animplayer(NodePath p_path) {
+		vrm_animplayer = p_path;
+	}
+	NodePath get_vrm_secondary() {
+		return VRMSecondary;
+	}
+	void set_vrm_secondary(NodePath p_path) {
+		VRMSecondary = p_path;
+	}
+	Ref<Resource> get_vrm_meta() {
+		return vrm_meta;
+	}
+	void set_vrm_meta(Ref<Resource> p_meta) {
+		vrm_meta = p_meta;
+	}
+	bool get_update_secondary_fixed() {
+		return update_secondary_fixed;
+	}
+	void set_update_secondary_fixed(bool p_fixed) {
+		update_secondary_fixed = p_fixed;
+	}
+	bool get_update_in_editor() {
+		return update_in_editor;
+	}
+	void set_update_in_editor(bool p_update) {
+		update_in_editor = p_update;
+	}
+	bool get_gizmo_spring_bone() {
+		return gizmo_spring_bone;
+	}
+	void set_gizmo_spring_bone(bool p_update) {
+		gizmo_spring_bone = p_update;
+	}
+	Color get_gizmo_spring_bone_color() {
+		return gizmo_spring_bone_color;
+	}
+
+protected:
+	static void _bind_methods() {
+		ClassDB::bind_method(D_METHOD("get_vrm_skeleton"), &VRMTopLevel::get_vrm_skeleton);
+		ClassDB::bind_method(D_METHOD("set_vrm_skeleton"), &VRMTopLevel::set_vrm_skeleton);
+		ClassDB::bind_method(D_METHOD("get_vrm_animplayer"), &VRMTopLevel::get_vrm_animplayer);
+		ClassDB::bind_method(D_METHOD("set_vrm_animplayer"), &VRMTopLevel::set_vrm_animplayer);
+		ClassDB::bind_method(D_METHOD("get_vrm_secondary"), &VRMTopLevel::get_vrm_secondary);
+		ClassDB::bind_method(D_METHOD("set_vrm_secondary"), &VRMTopLevel::set_vrm_secondary);
+		ClassDB::bind_method(D_METHOD("get_update_secondary_fixed"), &VRMTopLevel::get_update_secondary_fixed);
+		ClassDB::bind_method(D_METHOD("set_update_secondary_fixed"), &VRMTopLevel::set_update_secondary_fixed);
+		ClassDB::bind_method(D_METHOD("get_update_in_editor"), &VRMTopLevel::get_update_in_editor);
+		ClassDB::bind_method(D_METHOD("set_update_in_editor"), &VRMTopLevel::set_update_in_editor);
+		ClassDB::bind_method(D_METHOD("get_gizmo_spring_bone_color"), &VRMTopLevel::get_gizmo_spring_bone_color);
+		ClassDB::bind_method(D_METHOD("set_gizmo_spring_bone_color"), &VRMTopLevel::set_gizmo_spring_bone_color);
+
+		ADD_PROPERTY(PropertyInfo(Variant::NODE_PATH, "vrm_skeleton"), "set_vrm_skeleton", "get_vrm_skeleton");
+		ADD_PROPERTY(PropertyInfo(Variant::NODE_PATH, "vrm_animplayer"), "set_vrm_animplayer", "get_vrm_animplayer");
+		ADD_PROPERTY(PropertyInfo(Variant::NODE_PATH, "VRMSecondary"), "set_vrm_secondary", "get_vrm_secondary");
+		ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "vrm_meta", PROPERTY_HINT_RESOURCE_TYPE, "Resource"), "set_vrm_secondary", "get_vrm_secondary");
+		ADD_PROPERTY(PropertyInfo(Variant::BOOL, "update_secondary_fixed"), "set_update_secondary_fixed", "get_update_secondary_fixed");
+		ADD_PROPERTY(PropertyInfo(Variant::BOOL, "update_in_editor"), "set_update_in_editor", "get_update_in_editor");
+		ADD_PROPERTY(PropertyInfo(Variant::BOOL, "gizmo_spring_bone"), "set_gizmo_spring_bone", "get_gizmo_spring_bone");
+		ADD_PROPERTY(PropertyInfo(Variant::COLOR, "gizmo_spring_bone_color"), "set_gizmo_spring_bone_color", "get_gizmo_spring_bone_color");
+	}
+
+public:
+	void set_gizmo_spring_bone_color(Color p_color) {
+		gizmo_spring_bone_color = p_color;
+	}
+	static Quaternion from_to_rotation(Vector3 from, Vector3 to) {
+		Vector3 axis = from.cross(to);
+		if (Math::is_equal_approx(axis.x, 0.0f) && Math::is_equal_approx(axis.y, 0.0f) && Math::is_equal_approx(axis.z, 0.0f)) {
+			return Quaternion();
+		}
+		float angle = from.angle_to(to);
+		if (Math::is_equal_approx(angle, 0.0f)) {
+			angle = 0.0f;
+		}
+		return Quaternion(axis.normalized(), angle);
+	}
+
+	static Vector3 transform_point(Transform3D transform, Vector3 point) {
+		Vector3 sc = transform.basis.get_scale();
+		return transform.basis.get_rotation_quaternion().xform(Vector3(point.x * sc.x, point.y * sc.y, point.z * sc.z)) + transform.origin;
+	}
+	static Vector3 inv_transform_point(Transform3D transform, Vector3 point) {
+		Vector3 diff = point - transform.origin;
+		Vector3 sc = transform.basis.get_scale();
+		return transform.basis.get_rotation_quaternion().inverse().xform(Vector3(diff.x / sc.x, diff.y / sc.y, diff.z / sc.z));
+	}
+};
+
 class vrm_meta_class : public Resource {
 public:
 	// VRM extension is for 3d humanoid avatars (and models) in VR applications.
@@ -169,7 +279,36 @@ public:
 	String spec_version;
 };
 
-class vrm_springbone : public Resource {
+class SphereCollider : public Resource {
+public:
+	int idx = -1;
+	Vector3 offset;
+	float radius = 0.0f;
+	Vector3 position;
+
+	void _ready(int bone_idx, Vector3 collider_offset = Vector3(), float collider_radius = 0.1f) {
+		// TODO: Do not shadow notification().
+		idx = bone_idx;
+		offset = collider_offset;
+		radius = collider_radius;
+	}
+	void update(Node3D *parent, Skeleton3D *skel) {
+		if (parent->get_class() == "Skeleton3D" && idx != -1) {
+			Skeleton3D *skeleton = cast_to<Skeleton3D>(parent);
+			position = VRMTopLevel::transform_point(skeleton->get_global_transform() * skel->get_bone_global_pose(idx), offset);
+		} else {
+			position = VRMTopLevel::transform_point(parent->get_global_transform(), offset);
+		}
+	}
+	float get_radius() {
+		return radius;
+	}
+	Vector3 get_position() {
+		return position;
+	}
+};
+
+class VRMSpringBone : public Resource {
 public:
 	// # Annotation comment
 	// @export
@@ -218,9 +357,9 @@ public:
 	Array collider_groups; // DO NOT INITIALIZE HERE
 
 	// # Props
-	Vector<Ref<vrm_springbone>> verlets;
-	Array colliders;
-	Variant center;
+	Vector<Ref<VRMSpringBone>> verlets;
+	Vector<Ref<SphereCollider>> colliders;
+	Vector<Vector3> center;
 	Skeleton3D *skel = nullptr;
 
 	void setup(bool force = false) {
@@ -231,7 +370,7 @@ public:
 		// 	return;
 		// }
 		// if (!verlets.is_empty()) {
-		// 	for (Ref<vrm_springbone> verlet : verlets) {
+		// 	for (Ref<VRMSpringBone> verlet : verlets) {
 		// 		if (verlet.is_null()) {
 		// 			continue;
 		// 		}
@@ -260,12 +399,15 @@ public:
 	// 	for child in skel.get_bone_children(id):
 	// 		setup_recursive(child, center_tr)
 
-	// # Called when the node enters the scene tree for the first time.
-	// func _ready(ready_skel: Object, colliders_ref: Array) -> void:
-	// 	if ready_skel != null:
-	// 		self.skel = ready_skel
-	// 	setup()
-	// 	colliders = colliders_ref.duplicate(true)
+	// Called when the node enters the scene tree for the first time.
+	// TODO: Avoid shadowing godot methods.
+	void _ready(Skeleton3D *ready_skel, Vector<Ref<SphereCollider>> colliders_ref ) {
+		if (ready_skel) {
+			skel = ready_skel;
+		}
+		setup();
+		colliders = colliders_ref;
+	}
 
 	// # Called every frame. 'delta' is the elapsed time since the previous frame.
 	// func _process(delta) -> void:
@@ -372,115 +514,6 @@ public:
 	// 	return out
 };
 
-class VRMTopLevel : public Node3D {
-	NodePath vrm_skeleton;
-	NodePath vrm_animplayer;
-	NodePath vrm_secondary;
-	Ref<Resource> vrm_meta;
-	bool update_secondary_fixed = false;
-	bool update_in_editor = false;
-	bool gizmo_spring_bone = false;
-	Color gizmo_spring_bone_color = Color(1, 1, 0.878431, 1);
-
-public:
-	NodePath get_vrm_skeleton() {
-		return vrm_skeleton;
-	}
-	void set_vrm_skeleton(NodePath p_path) {
-		vrm_skeleton = p_path;
-	}
-	NodePath get_vrm_animplayer() {
-		return vrm_animplayer;
-	}
-	void set_vrm_animplayer(NodePath p_path) {
-		vrm_animplayer = p_path;
-	}
-	NodePath get_vrm_secondary() {
-		return vrm_secondary;
-	}
-	void set_vrm_secondary(NodePath p_path) {
-		vrm_secondary = p_path;
-	}
-	Ref<Resource> get_vrm_meta() {
-		return vrm_meta;
-	}
-	void set_vrm_meta(Ref<Resource> p_meta) {
-		vrm_meta = p_meta;
-	}
-	bool get_update_secondary_fixed() {
-		return update_secondary_fixed;
-	}
-	void set_update_secondary_fixed(bool p_fixed) {
-		update_secondary_fixed = p_fixed;
-	}
-	bool get_update_in_editor() {
-		return update_in_editor;
-	}
-	void set_update_in_editor(bool p_update) {
-		update_in_editor = p_update;
-	}
-	bool get_gizmo_spring_bone() {
-		return gizmo_spring_bone;
-	}
-	void set_gizmo_spring_bone(bool p_update) {
-		gizmo_spring_bone = p_update;
-	}
-	Color get_gizmo_spring_bone_color() {
-		return gizmo_spring_bone_color;
-	}
-
-protected:
-	static void _bind_methods() {
-		ClassDB::bind_method(D_METHOD("get_vrm_skeleton"), &VRMTopLevel::get_vrm_skeleton);
-		ClassDB::bind_method(D_METHOD("set_vrm_skeleton"), &VRMTopLevel::set_vrm_skeleton);
-		ClassDB::bind_method(D_METHOD("get_vrm_animplayer"), &VRMTopLevel::get_vrm_animplayer);
-		ClassDB::bind_method(D_METHOD("set_vrm_animplayer"), &VRMTopLevel::set_vrm_animplayer);
-		ClassDB::bind_method(D_METHOD("get_vrm_secondary"), &VRMTopLevel::get_vrm_secondary);
-		ClassDB::bind_method(D_METHOD("set_vrm_secondary"), &VRMTopLevel::set_vrm_secondary);
-		ClassDB::bind_method(D_METHOD("get_update_secondary_fixed"), &VRMTopLevel::get_update_secondary_fixed);
-		ClassDB::bind_method(D_METHOD("set_update_secondary_fixed"), &VRMTopLevel::set_update_secondary_fixed);
-		ClassDB::bind_method(D_METHOD("get_update_in_editor"), &VRMTopLevel::get_update_in_editor);
-		ClassDB::bind_method(D_METHOD("set_update_in_editor"), &VRMTopLevel::set_update_in_editor);
-		ClassDB::bind_method(D_METHOD("get_gizmo_spring_bone_color"), &VRMTopLevel::get_gizmo_spring_bone_color);
-		ClassDB::bind_method(D_METHOD("set_gizmo_spring_bone_color"), &VRMTopLevel::set_gizmo_spring_bone_color);
-
-		ADD_PROPERTY(PropertyInfo(Variant::NODE_PATH, "vrm_skeleton"), "set_vrm_skeleton", "get_vrm_skeleton");
-		ADD_PROPERTY(PropertyInfo(Variant::NODE_PATH, "vrm_animplayer"), "set_vrm_animplayer", "get_vrm_animplayer");
-		ADD_PROPERTY(PropertyInfo(Variant::NODE_PATH, "vrm_secondary"), "set_vrm_secondary", "get_vrm_secondary");
-		ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "vrm_meta", PROPERTY_HINT_RESOURCE_TYPE, "Resource"), "set_vrm_secondary", "get_vrm_secondary");
-		ADD_PROPERTY(PropertyInfo(Variant::BOOL, "update_secondary_fixed"), "set_update_secondary_fixed", "get_update_secondary_fixed");
-		ADD_PROPERTY(PropertyInfo(Variant::BOOL, "update_in_editor"), "set_update_in_editor", "get_update_in_editor");
-		ADD_PROPERTY(PropertyInfo(Variant::BOOL, "gizmo_spring_bone"), "set_gizmo_spring_bone", "get_gizmo_spring_bone");
-		ADD_PROPERTY(PropertyInfo(Variant::COLOR, "gizmo_spring_bone_color"), "set_gizmo_spring_bone_color", "get_gizmo_spring_bone_color");
-	}
-
-public:
-	void set_gizmo_spring_bone_color(Color p_color) {
-		gizmo_spring_bone_color = p_color;
-	}
-	static Quaternion from_to_rotation(Vector3 from, Vector3 to) {
-		Vector3 axis = from.cross(to);
-		if (Math::is_equal_approx(axis.x, 0.0f) && Math::is_equal_approx(axis.y, 0.0f) && Math::is_equal_approx(axis.z, 0.0f)) {
-			return Quaternion();
-		}
-		float angle = from.angle_to(to);
-		if (Math::is_equal_approx(angle, 0.0f)) {
-			angle = 0.0f;
-		}
-		return Quaternion(axis.normalized(), angle);
-	}
-
-	static Vector3 transform_point(Transform3D transform, Vector3 point) {
-		Vector3 sc = transform.basis.get_scale();
-		return transform.basis.get_rotation_quaternion().xform(Vector3(point.x * sc.x, point.y * sc.y, point.z * sc.z)) + transform.origin;
-	}
-	static Vector3 inv_transform_point(Transform3D transform, Vector3 point) {
-		Vector3 diff = point - transform.origin;
-		Vector3 sc = transform.basis.get_scale();
-		return transform.basis.get_rotation_quaternion().inverse().xform(Vector3(diff.x / sc.x, diff.y / sc.y, diff.z / sc.z));
-	}
-};
-
 class SecondaryGizmo : public MeshInstance3D {
 	Node *secondary_node = nullptr;
 	Ref<StandardMaterial3D> m = memnew(StandardMaterial3D);
@@ -500,7 +533,7 @@ public:
 		// // Spring bones
 		// Array spring_bones_internal_array = secondary_node->get("spring_bones_internal");
 		// for (int32_t spring_bone_i = 0; spring_bone_i < spring_bones_internal_array.size(); spring_bone_i++) {
-		// 	vrm_springbone *spring_bone = cast_to<vrm_springbone>(spring_bones_internal_array[spring_bone_i]);
+		// 	VRMSpringBone *spring_bone = cast_to<VRMSpringBone>(spring_bones_internal_array[spring_bone_i]);
 		// 	Ref<ImmediateMesh> immediate_mesh = get_mesh();
 		// 	if (immediate_mesh.is_null()) {
 		// 		continue;
@@ -625,8 +658,8 @@ public:
 			return;
 		}
 		VRMTopLevel *vrm_top_level = cast_to<VRMTopLevel>(secondary_node->get_parent());
-		if (vrm_top_level->get_parent() && vrm_top_level->get_parent()->get("gizmo_spring_bone")) {
-			draw_spring_bones(vrm_top_level->get("gizmo_spring_bone_color"));
+		if (vrm_top_level->get_parent() && vrm_top_level->get_parent()->get("get_gizmo_spring_bone")) {
+			draw_spring_bones(vrm_top_level->get_gizmo_spring_bone_color());
 			draw_collider_groups();
 		}
 	}
@@ -647,134 +680,7 @@ public:
 	}
 };
 
-class vrm_secondary : public Node3D {
-	//@export
-	Array spring_bones;
-	// @export
-	Array collider_groups;
-
-	bool update_secondary_fixed = false;
-	bool update_in_editor = false;
-
-	// Props
-	Array spring_bones_internal;
-	Array collider_groups_internal;
-	SecondaryGizmo *secondary_gizmo = nullptr;
-
-	// // Called when the node enters the scene tree for the first time.
-	// func _ready() -> void:
-	// 	var gizmo_spring_bone: bool = false
-	// 	if get_parent() is VRMTopLevel:
-	// 		update_secondary_fixed = get_parent().get("update_secondary_fixed")
-	// 		gizmo_spring_bone = get_parent().get("gizmo_spring_bone")
-
-	// 	if secondary_gizmo == null and (Engine.is_editor_hint() or gizmo_spring_bone):
-	// 		secondary_gizmo = SecondaryGizmo.new(self)
-	// 		add_child(secondary_gizmo, true)
-	// 	collider_groups_internal.clear()
-	// 	spring_bones_internal.clear()
-	// 	for collider_group in collider_groups:
-	// 		var new_collider_group = collider_group.duplicate(true)
-	// 		var parent: Node3D = get_node_or_null(new_collider_group.skeleton_or_node)
-	// 		if parent != null:
-	// 			new_collider_group._ready(parent, parent)
-	// 			collider_groups_internal.append(new_collider_group)
-	// 	for spring_bone in spring_bones:
-	// 		var new_spring_bone = spring_bone.duplicate(true)
-	// 		var tmp_colliders: Array = []
-	// 		for i in range(collider_groups.size()):
-	// 			if new_spring_bone.collider_groups.has(collider_groups[i]):
-	// 				tmp_colliders.append_array(collider_groups_internal[i].colliders)
-	// 		var skel: Skeleton3D = get_node_or_null(new_spring_bone.skeleton)
-	// 		if skel != null:
-	// 			new_spring_bone._ready(skel, tmp_colliders)
-	// 			spring_bones_internal.append(new_spring_bone)
-
-	// func check_for_editor_update() -> bool:
-	// 	if not Engine.is_editor_hint():
-	// 		return false
-	// 	var parent: Node = get_parent()
-	// 	if parent is VRMTopLevel:
-	// 		if parent.update_in_editor and not update_in_editor:
-	// 			update_in_editor = true
-	// 			_ready()
-	// 		if not parent.update_in_editor and update_in_editor:
-	// 			update_in_editor = false
-	// 			for spring_bone in spring_bones_internal:
-	// 				spring_bone.skel.clear_bones_global_pose_override()
-	// 	return update_in_editor
-
-	// # Called every frame. 'delta' is the elapsed time since the previous frame.
-	// func _process(delta) -> void:
-	// 	if not update_secondary_fixed:
-	// 		if not Engine.is_editor_hint() or check_for_editor_update():
-	// 			# force update skeleton
-	// 			for spring_bone in spring_bones_internal:
-	// 				if spring_bone.skel != null:
-	// 					spring_bone.skel.get_bone_global_pose_no_override(0)
-	// 			for collider_group in collider_groups_internal:
-	// 				collider_group._process()
-	// 			for spring_bone in spring_bones_internal:
-	// 				spring_bone._process(delta)
-	// 			if secondary_gizmo != null:
-	// 				if Engine.is_editor_hint():
-	// 					secondary_gizmo.draw_in_editor(true)
-	// 				else:
-	// 					secondary_gizmo.draw_in_game()
-	// 		elif Engine.is_editor_hint():
-	// 			if secondary_gizmo != null:
-	// 				secondary_gizmo.draw_in_editor()
-
-	// func _physics_process(delta) -> void:
-	// 	if update_secondary_fixed:
-	// 		if not Engine.is_editor_hint() or check_for_editor_update():
-	// 			# force update skeleton
-	// 			for spring_bone in spring_bones_internal:
-	// 				if spring_bone.skel != null:
-	// 					spring_bone.skel.get_bone_global_pose_no_override(0)
-	// 			for collider_group in collider_groups_internal:
-	// 				collider_group._process()
-	// 			for spring_bone in spring_bones_internal:
-	// 				spring_bone._process(delta)
-	// 			if secondary_gizmo != null:
-	// 				if Engine.is_editor_hint():
-	// 					secondary_gizmo.draw_in_editor(true)
-	// 				else:
-	// 					secondary_gizmo.draw_in_game()
-	// 		elif Engine.is_editor_hint():
-	// 			if secondary_gizmo != null:
-	// 				secondary_gizmo.draw_in_editor()
-};
-
-class SphereCollider : public RefCounted {
-public:
-	int idx = -1;
-	Vector3 offset;
-	float radius = 0.0f;
-	Vector3 position;
-
-	SphereCollider(int bone_idx, Vector3 collider_offset = Vector3(), float collider_radius = 0.1f) {
-		idx = bone_idx;
-		offset = collider_offset;
-		radius = collider_radius;
-	}
-	void update(Node3D *parent, Skeleton3D *skel) {
-		if (parent->get_class() == "Skeleton3D" && idx != -1) {
-			Skeleton3D *skeleton = cast_to<Skeleton3D>(parent);
-			position = VRMTopLevel::transform_point(skeleton->get_global_transform() * skel->get_bone_global_pose(idx), offset);
-		} else {
-			position = VRMTopLevel::transform_point(parent->get_global_transform(), offset);
-		}
-	}
-	float get_radius() {
-		return radius;
-	}
-	Vector3 get_position() {
-		return position;
-	}
-};
-
-class vrm_collidergroup : public Resource {
+class VRMColliderGroup : public Resource {
 public:
 	// Bone name references are only valid within the given Skeleton.
 	// If the node was not a skeleton, bone is "" and contains a path to the node.
@@ -808,11 +714,14 @@ public:
 		}
 		colliders.clear();
 		for (const Vector4 &collider : sphere_colliders) {
-			Ref<SphereCollider> collider_single = memnew(SphereCollider(bone_idx, Vector3(collider.x, collider.y, collider.z), collider.w));
+			Ref<SphereCollider> collider_single;
+			collider_single.instantiate();
+			collider_single->_ready(bone_idx, Vector3(collider.x, collider.y, collider.z), collider.w);
 			colliders.append(collider_single);
 		}
 	}
 	void _ready(Node3D *ready_parent, Skeleton3D *ready_skel) {
+		// TODO: Why is there a duplicate variable here?
 		parent = ready_parent;
 		if (ready_parent->get_class() == "Skeleton3D") {
 			skel = ready_skel;
@@ -824,6 +733,128 @@ public:
 		for (Ref<SphereCollider> collider : colliders) {
 			collider->update(parent, skel);
 		}
+	}
+};
+
+class VRMSecondary : public Node3D {
+public:
+	//@export
+	Vector<Ref<VRMSpringBone>> spring_bones;
+	// @export
+	Vector<Ref<VRMColliderGroup>> collider_groups;
+
+	bool update_secondary_fixed = false;
+	bool update_in_editor = false;
+
+private:
+	Vector<Ref<VRMSpringBone>> spring_bones_internal;
+	Vector<Ref<VRMColliderGroup>> collider_groups_internal;
+	SecondaryGizmo *secondary_gizmo = nullptr;
+
+protected:
+	void _notification(int p_what) {
+		switch (p_what) {
+			case NOTIFICATION_READY: {
+				bool gizmo_spring_bone = false;
+				VRMTopLevel *vrm_top_level = cast_to<VRMTopLevel>(get_parent());
+				if (vrm_top_level) {
+					update_secondary_fixed = vrm_top_level->get_update_secondary_fixed();
+					gizmo_spring_bone = vrm_top_level->get_gizmo_spring_bone();
+				}
+				if (secondary_gizmo == nullptr && (Engine::get_singleton()->is_editor_hint() || gizmo_spring_bone)) {
+					secondary_gizmo = memnew(SecondaryGizmo(this));
+					add_child(secondary_gizmo, true);
+				}
+				collider_groups_internal.clear();
+				spring_bones_internal.clear();
+				for (Ref<VRMColliderGroup>collider_group : collider_groups) {
+					Ref<VRMColliderGroup>new_collider_group = collider_group->duplicate(true);
+					Skeleton3D *parent = cast_to<Skeleton3D>(get_node_or_null(new_collider_group->skeleton_or_node));
+					if (parent) {
+						new_collider_group->_ready(parent, parent);
+						collider_groups_internal.append(new_collider_group);
+					}
+				}
+				for (Ref<VRMSpringBone> spring_bone : spring_bones) {
+					Ref<VRMSpringBone> new_spring_bone = spring_bone->duplicate(true);
+					Vector<Ref<SphereCollider>> tmp_colliders;
+					for (int32_t collider_i = 0; collider_i < collider_groups.size(); collider_i++) {
+						if (new_spring_bone->collider_groups.has(collider_groups[collider_i])) {
+							tmp_colliders.append_array(collider_groups_internal[collider_i]->colliders);
+						}
+					}
+					Skeleton3D *skel = cast_to<Skeleton3D>(get_node_or_null(new_spring_bone->skeleton));
+					if (skel) {
+						new_spring_bone->_ready(skel, tmp_colliders);
+						spring_bones_internal.append(new_spring_bone);
+					}
+				}
+			} break;
+			case NOTIFICATION_PROCESS: {
+				// # Called every frame. 'delta' is the elapsed time since the previous frame.
+				// func _process(delta) -> void:
+				// 	if not update_secondary_fixed:
+				// 		if not Engine.is_editor_hint() or check_for_editor_update():
+				// 			# force update skeleton
+				// 			for spring_bone in spring_bones_internal:
+				// 				if spring_bone.skel != null:
+				// 					spring_bone.skel.get_bone_global_pose_no_override(0)
+				// 			for collider_group in collider_groups_internal:
+				// 				collider_group._process()
+				// 			for spring_bone in spring_bones_internal:
+				// 				spring_bone._process(delta)
+				// 			if secondary_gizmo != null:
+				// 				if Engine.is_editor_hint():
+				// 					secondary_gizmo.draw_in_editor(true)
+				// 				else:
+				// 					secondary_gizmo.draw_in_game()
+				// 		elif Engine.is_editor_hint():
+				// 			if secondary_gizmo != null:
+				// 				secondary_gizmo.draw_in_editor()
+			} break;
+			case NOTIFICATION_PHYSICS_PROCESS: {
+				// 	if update_secondary_fixed:
+				// 		if not Engine.is_editor_hint() or check_for_editor_update():
+				// 			# force update skeleton
+				// 			for spring_bone in spring_bones_internal:
+				// 				if spring_bone.skel != null:
+				// 					spring_bone.skel.get_bone_global_pose_no_override(0)
+				// 			for collider_group in collider_groups_internal:
+				// 				collider_group._process()
+				// 			for spring_bone in spring_bones_internal:
+				// 				spring_bone._process(delta)
+				// 			if secondary_gizmo != null:
+				// 				if Engine.is_editor_hint():
+				// 					secondary_gizmo.draw_in_editor(true)
+				// 				else:
+				// 					secondary_gizmo.draw_in_game()
+				// 		elif Engine.is_editor_hint():
+				// 			if secondary_gizmo != null:
+				// 				secondary_gizmo.draw_in_editor()
+			} break;
+		}
+	}
+
+public:
+	bool check_for_editor_update() {
+		if (!Engine::get_singleton()->is_editor_hint()) {
+			return false;
+		}
+		Node *parent = get_parent();
+		VRMTopLevel *vrm_top_level = cast_to<VRMTopLevel>(parent);
+		if (vrm_top_level) {
+			if (vrm_top_level->get_update_in_editor() && !update_in_editor) {
+				update_in_editor = true;
+				_notification(NOTIFICATION_READY);
+			}
+		}
+		if (!parent->get("update_in_editor") && update_in_editor) {
+			update_in_editor = false;
+			for (Ref<VRMSpringBone> spring_bone : spring_bones_internal) {
+				spring_bone->skel->clear_bones_global_pose_override();
+			}
+		}
+		return update_in_editor;
 	}
 };
 
@@ -1677,7 +1708,7 @@ public:
 	// 		var gltfnode: GLTFNode = nodes[int(first_bone_node)]
 	// 		var skeleton: Skeleton3D = _get_skel_godot_node(gstate, nodes, skeletons,gltfnode.skeleton)
 
-	// 		var spring_bone = vrm_springbone.new()
+	// 		var spring_bone = VRMSpringBone.new()
 	// 		spring_bone.skeleton = secondary_node.get_path_to(skeleton)
 	// 		spring_bone.comment = sbone.get("comment", "")
 	// 		spring_bone.stiffness_force = float(sbone.get("stiffiness", 1.0))
@@ -1730,7 +1761,7 @@ public:
 
 	// 		spring_bones.append(spring_bone)
 
-	// 	secondary_node.set_script(vrm_secondary)
+	// 	secondary_node.set_script(VRMSecondary)
 	// 	secondary_node.set("spring_bones", spring_bones)
 	// 	secondary_node.set("collider_groups", collider_groups)
 
@@ -1862,7 +1893,7 @@ public:
 
 	// 	var vrm_meta: Resource = _create_meta(root_node, animplayer, vrm_extension, gstate, skeleton, humanBones, human_bone_to_idx, pose_diffs)
 	// 	root_node.set("vrm_meta", vrm_meta)
-	// 	root_node.set("vrm_secondary", NodePath())
+	// 	root_node.set("VRMSecondary", NodePath())
 
 	// 	if (vrm_extension.has("secondaryAnimation") and \
 // 			(vrm_extension["secondaryAnimation"].get("colliderGroups", []).size() > 0 or \
@@ -1876,7 +1907,7 @@ public:
 	// 			secondary_node.set_name("secondary")
 
 	// 		var secondary_path: NodePath = root_node.get_path_to(secondary_node)
-	// 		root_node.set("vrm_secondary", secondary_path)
+	// 		root_node.set("VRMSecondary", secondary_path)
 
 	// 		_parse_secondary_node(secondary_node, vrm_extension, gstate, pose_diffs, is_vrm_0)
 	// 	return OK
@@ -1914,6 +1945,8 @@ class VRMEditorPlugin : public EditorPlugin {
 
 public:
 	virtual String get_name() const override { return "VRM"; }
+
+protected:
 	void _notification(int p_what) {
 		switch (p_what) {
 			case NOTIFICATION_ENTER_TREE: {
@@ -1925,6 +1958,8 @@ public:
 			} break;
 		}
 	}
+
+public:
 	VRMEditorPlugin() {}
 	~VRMEditorPlugin() {}
 };
