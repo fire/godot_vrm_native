@@ -38,7 +38,7 @@ class vrm_constants_class : public RefCounted {
 public:
 	Dictionary vrm_to_human_bone;
 
-	vrm_constants_class() {
+	vrm_constants_class(bool is_vrm_0) {
 		vrm_to_human_bone["hips"] = "Hips";
 		vrm_to_human_bone["spine"] = "Spine";
 		vrm_to_human_bone["chest"] = "Chest";
@@ -94,18 +94,19 @@ public:
 		vrm_to_human_bone["rightLowerLeg"] = "RightLowerLeg";
 		vrm_to_human_bone["rightFoot"] = "RightFoot";
 		vrm_to_human_bone["rightToes"] = "RightToes";
-		// Is vrm 0
-		vrm_to_human_bone["leftThumbIntermediate"] = "LeftThumbProximal";
-		vrm_to_human_bone["leftThumbProximal"] = "LeftThumbMetacarpal";
-		vrm_to_human_bone["rightThumbIntermediate"] = "RightThumbProximal";
-		vrm_to_human_bone["rightThumbProximal"] = "RightThumbMetacarpal";
+		if (is_vrm_0) {
+			vrm_to_human_bone["leftThumbIntermediate"] = "LeftThumbProximal";
+			vrm_to_human_bone["leftThumbProximal"] = "LeftThumbMetacarpal";
+			vrm_to_human_bone["rightThumbIntermediate"] = "RightThumbProximal";
+			vrm_to_human_bone["rightThumbProximal"] = "RightThumbMetacarpal";
+		}
 	}
 };
 
 class VRMTopLevel : public Node3D {
 	NodePath vrm_skeleton;
 	NodePath vrm_animplayer;
-	NodePath VRMSecondary;
+	NodePath vrm_secondary;
 	Ref<Resource> vrm_meta;
 	bool update_secondary_fixed = false;
 	bool update_in_editor = false;
@@ -126,10 +127,10 @@ public:
 		vrm_animplayer = p_path;
 	}
 	NodePath get_vrm_secondary() {
-		return VRMSecondary;
+		return vrm_secondary;
 	}
 	void set_vrm_secondary(NodePath p_path) {
-		VRMSecondary = p_path;
+		vrm_secondary = p_path;
 	}
 	Ref<Resource> get_vrm_meta() {
 		return vrm_meta;
@@ -176,7 +177,7 @@ protected:
 
 		ADD_PROPERTY(PropertyInfo(Variant::NODE_PATH, "vrm_skeleton"), "set_vrm_skeleton", "get_vrm_skeleton");
 		ADD_PROPERTY(PropertyInfo(Variant::NODE_PATH, "vrm_animplayer"), "set_vrm_animplayer", "get_vrm_animplayer");
-		ADD_PROPERTY(PropertyInfo(Variant::NODE_PATH, "VRMSecondary"), "set_vrm_secondary", "get_vrm_secondary");
+		ADD_PROPERTY(PropertyInfo(Variant::NODE_PATH, "vrm_secondary"), "set_vrm_secondary", "get_vrm_secondary");
 		ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "vrm_meta", PROPERTY_HINT_RESOURCE_TYPE, "Resource"), "set_vrm_secondary", "get_vrm_secondary");
 		ADD_PROPERTY(PropertyInfo(Variant::BOOL, "update_secondary_fixed"), "set_update_secondary_fixed", "get_update_secondary_fixed");
 		ADD_PROPERTY(PropertyInfo(Variant::BOOL, "update_in_editor"), "set_update_in_editor", "get_update_in_editor");
@@ -209,73 +210,6 @@ public:
 		Vector3 sc = transform.basis.get_scale();
 		return transform.basis.get_rotation_quaternion().inverse().xform(Vector3(diff.x / sc.x, diff.y / sc.y, diff.z / sc.z));
 	}
-};
-
-class vrm_meta_class : public Resource {
-public:
-	// VRM extension is for 3d humanoid avatars (and models) in VR applications.
-	// Meta schema:
-
-	//Title of VRM model
-	String title;
-
-	//Version of VRM model
-	String version;
-
-	//Author of VRM model
-	String author;
-
-	//Contact Information of VRM model author
-	String contact_information;
-
-	//Reference of VRM model
-	String reference_information;
-
-	// Thumbnail of VRM model
-	Ref<Texture2D> texture;
-
-	//A person who can perform with this avatar
-	String allowed_user_name;
-	// (String,"","OnlyAuthor","ExplicitlyLicensedPerson","Everyone")
-	//Permission to perform violent acts with this avatar
-	String violent_usage;
-	// (String,"","Disallow","Allow")
-	//Permission to perform sexual acts with this avatar
-	String sexual_usage;
-	// (String,"","Disallow","Allow")
-	//For commercial use
-	String commercial_usage;
-	// (String,"","Disallow","Allow")
-	//If there are any conditions not mentioned above, put the URL link of the license document here.
-	String other_permission_url;
-
-	//License type
-	String license_name;
-	// (String,"","Redistribution_Prohibited","CC0","CC_BY","CC_BY_NC","CC_BY_SA","CC_BY_NC_SA","CC_BY_ND","CC_BY_NC_ND","Other")
-	//If "Other" is selected, put the URL link of the license document here.
-	String other_license_url;
-
-	//Human bone name -> Reference node index
-	//NOTE: We are currently discarding all Unity-specific data.
-	//We may need to store it somewhere in case we wish to re-export.
-	Ref<BoneMap> humanoid_bone_mapping; // VRM boneName -> bone name (within skeleton)
-
-	NodePath humanoid_skeleton_path;
-
-	//firstPersonBoneOffset:
-	//The target position of the VR headset in first-person view.
-	//It is assumed that an offset from the head bone to the VR headset is added.
-	Vector3 eye_offset;
-	//NOTE: Mouth offset is not stored in any model metadata.
-	//As an alternative, we could get the centroid of vertices moved by viseme blend shapes.
-	//But for now, users should assume same as eyeOffset with y=0 (relative to head)
-
-	//Toplevel schema, belongs in vrm_meta:
-	//Version of exporter that vrm created. UniVRM-0.46
-	String exporter_version;
-
-	//Version of VRM specification. 0.0
-	String spec_version;
 };
 
 class SphereCollider : public Resource {
@@ -902,6 +836,73 @@ public:
 	}
 };
 
+class VRMMeta : public Resource {
+public:
+	// VRM extension is for 3d humanoid avatars (and models) in VR applications.
+	// Meta schema:
+
+	//Title of VRM model
+	String title;
+
+	//Version of VRM model
+	String version;
+
+	//Author of VRM model
+	String author;
+
+	//Contact Information of VRM model author
+	String contact_information;
+
+	//Reference of VRM model
+	String reference_information;
+
+	// Thumbnail of VRM model
+	Ref<Texture2D> texture;
+
+	//A person who can perform with this avatar
+	String allowed_user_name;
+	// (String,"","OnlyAuthor","ExplicitlyLicensedPerson","Everyone")
+	//Permission to perform violent acts with this avatar
+	String violent_usage;
+	// (String,"","Disallow","Allow")
+	//Permission to perform sexual acts with this avatar
+	String sexual_usage;
+	// (String,"","Disallow","Allow")
+	//For commercial use
+	String commercial_usage;
+	// (String,"","Disallow","Allow")
+	//If there are any conditions not mentioned above, put the URL link of the license document here.
+	String other_permission_url;
+
+	//License type
+	String license_name;
+	// (String,"","Redistribution_Prohibited","CC0","CC_BY","CC_BY_NC","CC_BY_SA","CC_BY_NC_SA","CC_BY_ND","CC_BY_NC_ND","Other")
+	//If "Other" is selected, put the URL link of the license document here.
+	String other_license_url;
+
+	//Human bone name -> Reference node index
+	//NOTE: We are currently discarding all Unity-specific data.
+	//We may need to store it somewhere in case we wish to re-export.
+	Ref<BoneMap> humanoid_bone_mapping; // VRM boneName -> bone name (within skeleton)
+
+	NodePath humanoid_skeleton_path;
+
+	//firstPersonBoneOffset:
+	//The target position of the VR headset in first-person view.
+	//It is assumed that an offset from the head bone to the VR headset is added.
+	Vector3 eye_offset;
+	//NOTE: Mouth offset is not stored in any model metadata.
+	//As an alternative, we could get the centroid of vertices moved by viseme blend shapes.
+	//But for now, users should assume same as eyeOffset with y=0 (relative to head)
+
+	//Toplevel schema, belongs in vrm_meta:
+	//Version of exporter that vrm created. UniVRM-0.46
+	String exporter_version;
+
+	//Version of VRM specification. 0.0
+	String spec_version;
+};
+
 class VRMGLTFDocumentExtension : public GLTFDocumentExtension {
 public:
 	Ref<Resource> vrm_met;
@@ -1029,20 +1030,21 @@ public:
 		p_skeleton->set_unique_name_in_owner(true);
 	}
 
-	// func rotate_scene_180_inner(p_node: Node3D, mesh_set: Dictionary, skin_set: Dictionary):
-	// 	if p_node is Skeleton3D:
-	// 		for bone_idx in range(p_node.get_bone_count()):
-	// 			var rest: Transform3D = ROTATE_180_TRANSFORM * p_node.get_bone_rest(bone_idx) * ROTATE_180_TRANSFORM
-	// 			p_node.set_bone_rest(bone_idx, rest)
-	// 			p_node.set_bone_pose_rotation(bone_idx, Quaternion(ROTATE_180_BASIS) * p_node.get_bone_pose_rotation(bone_idx) * Quaternion(ROTATE_180_BASIS))
-	// 			p_node.set_bone_pose_scale(bone_idx, Vector3.ONE)
-	// 			p_node.set_bone_pose_position(bone_idx, rest.origin)
-	// 	p_node.transform = ROTATE_180_TRANSFORM * p_node.transform * ROTATE_180_TRANSFORM
-	// 	if p_node is ImporterMeshInstance3D:
-	// 		mesh_set[p_node.mesh] = true
-	// 		skin_set[p_node.skin] = true
-	// 	for child in p_node.get_children():
-	// 		rotate_scene_180_inner(child, mesh_set, skin_set)
+	void rotate_scene_180_inner(Node3D *p_node, Dictionary mesh_set, Dictionary skin_set) {
+		// 	if p_node is Skeleton3D:
+		// 		for bone_idx in range(p_node.get_bone_count()):
+		// 			var rest: Transform3D = ROTATE_180_TRANSFORM * p_node.get_bone_rest(bone_idx) * ROTATE_180_TRANSFORM
+		// 			p_node.set_bone_rest(bone_idx, rest)
+		// 			p_node.set_bone_pose_rotation(bone_idx, Quaternion(ROTATE_180_BASIS) * p_node.get_bone_pose_rotation(bone_idx) * Quaternion(ROTATE_180_BASIS))
+		// 			p_node.set_bone_pose_scale(bone_idx, Vector3.ONE)
+		// 			p_node.set_bone_pose_position(bone_idx, rest.origin)
+		// 	p_node.transform = ROTATE_180_TRANSFORM * p_node.transform * ROTATE_180_TRANSFORM
+		// 	if p_node is ImporterMeshInstance3D:
+		// 		mesh_set[p_node.mesh] = true
+		// 		skin_set[p_node.skin] = true
+		// 	for child in p_node.get_children():
+		// 		rotate_scene_180_inner(child, mesh_set, skin_set)
+	}
 
 	// func xtmp(p_node: Node3D, mesh_set: Dictionary, skin_set: Dictionary):
 	// 	if p_node is ImporterMeshInstance3D:
@@ -1051,31 +1053,37 @@ public:
 	// 	for child in p_node.get_children():
 	// 		xtmp(child, mesh_set, skin_set)
 
-	// func rotate_scene_180(p_scene: Node3D):
-	// 	var mesh_set: Dictionary = {}
-	// 	var skin_set: Dictionary = {}
-	// 	rotate_scene_180_inner(p_scene, mesh_set, skin_set)
-	// 	#xtmp(p_scene, mesh_set, skin_set)
-	// 	for mesh in mesh_set:
-	// 		adjust_mesh_zforward(mesh)
-	// 	for skin in skin_set:
-	// 		for b in range(skin.get_bind_count()):
-	// 			skin.set_bind_pose(b, ROTATE_180_TRANSFORM * skin.get_bind_pose(b))
+	void rotate_scene_180(Node3D *p_scene) {
+		// var mesh_set: Dictionary = {}
+		// var skin_set: Dictionary = {}
+		// rotate_scene_180_inner(p_scene, mesh_set, skin_set)
+		// #xtmp(p_scene, mesh_set, skin_set)
+		// for mesh in mesh_set:
+		// 	adjust_mesh_zforward(mesh)
+		// for skin in skin_set:
+		// 	for b in range(skin.get_bind_count()):
+		// 		skin.set_bind_pose(b, ROTATE_180_TRANSFORM * skin.get_bind_pose(b))
+	}
 
-	// func skeleton_rotate(p_base_scene: Node, src_skeleton: Skeleton3D, p_bone_map: BoneMap) -> Array[Basis]:
-	// 	# is_renamed: was skeleton_rename already invoked?
-	// 	var is_renamed = true
-	// 	var profile = p_bone_map.profile
-	// 	var prof_skeleton = Skeleton3D.new()
-	// 	for i in range(profile.bone_size):
-	// 		# Add single bones.
-	// 		prof_skeleton.add_bone(profile.get_bone_name(i));
-	// 		prof_skeleton.set_bone_rest(i, profile.get_reference_pose(i));
-	// 	for i in range(profile.bone_size):
-	// 		# Set parents.
-	// 		var parent = profile.find_bone(profile.get_bone_parent(i));
-	// 		if parent >= 0:
-	// 			prof_skeleton.set_bone_parent(i, parent)
+	TypedArray<Basis> skeleton_rotate(Node *p_base_scene, Skeleton3D *src_skeleton, Ref<BoneMap> p_bone_map) {
+		// Was skeleton_rename already invoked?
+		// TODO: Remove variable.
+		bool is_renamed = true;
+		Ref<SkeletonProfile> profile = p_bone_map->get_profile();
+		Skeleton3D *prof_skeleton = memnew(Skeleton3D);
+		for (int32_t bone_i = 0; bone_i < profile->get_bone_size(); bone_i++) {
+			// Add single bones.
+			prof_skeleton->add_bone(profile->get_bone_name(bone_i));
+			prof_skeleton->set_bone_rest(bone_i, profile->get_reference_pose(bone_i));
+		}
+		for (int32_t bone_i = 0; bone_i < profile->get_bone_size(); bone_i++) {
+			// Set parents.
+			int32_t parent = profile->find_bone(profile->get_bone_parent(bone_i));
+			if (parent >= 0) {
+				prof_skeleton->set_bone_parent(bone_i, parent);
+			}
+		}
+	}
 
 	// 	# Overwrite axis.
 	// 	var old_skeleton_rest: Array[Transform3D]
@@ -1122,33 +1130,34 @@ public:
 	// 	prof_skeleton.queue_free()
 	// 	return diffs
 
-	// func apply_rotation(p_base_scene: Node, src_skeleton: Skeleton3D):
-	// 	# Fix skin.
-	// 	var nodes: Array[Node] = p_base_scene.find_children("*", "ImporterMeshInstance3D")
-	// 	while not nodes.is_empty():
-	// 		var this_node = nodes.pop_back()
-	// 		if this_node is ImporterMeshInstance3D:
-	// 			var mi = this_node
-	// 			var skin: Skin = mi.skin
-	// 			var node = mi.get_node_or_null(mi.skeleton_path)
-	// 			if skin and node and node is Skeleton3D and node == src_skeleton:
-	// 				var skellen = skin.get_bind_count()
-	// 				for i in range(skellen):
-	// 					var bn: StringName = skin.get_bind_name(i);
-	// 					var bone_idx: int = src_skeleton.find_bone(bn);
-	// 					if bone_idx >= 0:
-	// 						# silhouette_diff[i] *
-	// 						# Normally would need to take bind-pose into account.
-	// 						# However, in this case, it works because VRM files must be baked before export.
-	// 						var new_rest: Transform3D = src_skeleton.get_bone_global_rest(bone_idx)
-	// 						skin.set_bind_pose(i, new_rest.inverse())
+	void apply_rotation(Node *p_base_scene, Skeleton3D *src_skeleton) {
+		// 	# Fix skin.
+		// 	var nodes: Array[Node] = p_base_scene.find_children("*", "ImporterMeshInstance3D")
+		// 	while not nodes.is_empty():
+		// 		var this_node = nodes.pop_back()
+		// 		if this_node is ImporterMeshInstance3D:
+		// 			var mi = this_node
+		// 			var skin: Skin = mi.skin
+		// 			var node = mi.get_node_or_null(mi.skeleton_path)
+		// 			if skin and node and node is Skeleton3D and node == src_skeleton:
+		// 				var skellen = skin.get_bind_count()
+		// 				for i in range(skellen):
+		// 					var bn: StringName = skin.get_bind_name(i);
+		// 					var bone_idx: int = src_skeleton.find_bone(bn);
+		// 					if bone_idx >= 0:
+		// 						# silhouette_diff[i] *
+		// 						# Normally would need to take bind-pose into account.
+		// 						# However, in this case, it works because VRM files must be baked before export.
+		// 						var new_rest: Transform3D = src_skeleton.get_bone_global_rest(bone_idx)
+		// 						skin.set_bind_pose(i, new_rest.inverse())
 
-	// 	# Init skeleton pose to new rest.
-	// 	for i in range(src_skeleton.get_bone_count()):
-	// 		var fixed_rest: Transform3D = src_skeleton.get_bone_rest(i)
-	// 		src_skeleton.set_bone_pose_position(i, fixed_rest.origin)
-	// 		src_skeleton.set_bone_pose_rotation(i, fixed_rest.basis.get_rotation_quaternion())
-	// 		src_skeleton.set_bone_pose_scale(i, fixed_rest.basis.get_scale())
+		// 	# Init skeleton pose to new rest.
+		// 	for i in range(src_skeleton.get_bone_count()):
+		// 		var fixed_rest: Transform3D = src_skeleton.get_bone_rest(i)
+		// 		src_skeleton.set_bone_pose_position(i, fixed_rest.origin)
+		// 		src_skeleton.set_bone_pose_rotation(i, fixed_rest.basis.get_rotation_quaternion())
+		// 		src_skeleton.set_bone_pose_scale(i, fixed_rest.basis.get_scale())
+	}
 
 	// enum DebugMode {
 	// 	None = 0,
@@ -1327,94 +1336,95 @@ public:
 
 	// 	return new_mat
 
-	// func _update_materials(vrm_extension: Dictionary, gstate: GLTFState) -> void:
-	// 	var images = gstate.get_images()
-	// 	#print(images)
-	// 	var materials : Array = gstate.get_materials();
-	// 	var spatial_to_shader_mat : Dictionary = {}
+	void _update_materials(Dictionary vrm_extension, Ref<GLTFState> gstate) {
+		// 	var images = gstate.get_images()
+		// 	#print(images)
+		// 	var materials : Array = gstate.get_materials();
+		// 	var spatial_to_shader_mat : Dictionary = {}
 
-	// 	# Render priority setup
-	// 	var render_queue_to_priority: Array = []
-	// 	var negative_render_queue_to_priority: Array = []
-	// 	var uniq_render_queues: Dictionary = {}
-	// 	negative_render_queue_to_priority.push_back(0)
-	// 	render_queue_to_priority.push_back(0)
-	// 	uniq_render_queues[0] = true
-	// 	for i in range(materials.size()):
-	// 		var oldmat: Material = materials[i]
-	// 		var vrm_mat: Dictionary = vrm_extension["materialProperties"][i]
-	// 		var delta_render_queue = vrm_mat.get("renderQueue", 3000) - 3000
-	// 		if not uniq_render_queues.has(delta_render_queue):
-	// 			uniq_render_queues[delta_render_queue] = true
-	// 			if delta_render_queue < 0:
-	// 				negative_render_queue_to_priority.push_back(-delta_render_queue)
-	// 			else:
-	// 				render_queue_to_priority.push_back(delta_render_queue)
-	// 	negative_render_queue_to_priority.sort()
-	// 	render_queue_to_priority.sort()
+		// 	# Render priority setup
+		// 	var render_queue_to_priority: Array = []
+		// 	var negative_render_queue_to_priority: Array = []
+		// 	var uniq_render_queues: Dictionary = {}
+		// 	negative_render_queue_to_priority.push_back(0)
+		// 	render_queue_to_priority.push_back(0)
+		// 	uniq_render_queues[0] = true
+		// 	for i in range(materials.size()):
+		// 		var oldmat: Material = materials[i]
+		// 		var vrm_mat: Dictionary = vrm_extension["materialProperties"][i]
+		// 		var delta_render_queue = vrm_mat.get("renderQueue", 3000) - 3000
+		// 		if not uniq_render_queues.has(delta_render_queue):
+		// 			uniq_render_queues[delta_render_queue] = true
+		// 			if delta_render_queue < 0:
+		// 				negative_render_queue_to_priority.push_back(-delta_render_queue)
+		// 			else:
+		// 				render_queue_to_priority.push_back(delta_render_queue)
+		// 	negative_render_queue_to_priority.sort()
+		// 	render_queue_to_priority.sort()
 
-	// 	# Material conversions
-	// 	for i in range(materials.size()):
-	// 		var oldmat: Material = materials[i]
-	// 		if (oldmat is ShaderMaterial):
-	// 			# Indicates that the user asked to keep existing materials. Avoid changing them.
-	// 			print("Material " + str(i) + ": " + str(oldmat.resource_name) + " already is shader.")
-	// 			continue
-	// 		var newmat: Material = _process_khr_material(oldmat, gstate.json["materials"][i])
-	// 		var vrm_mat_props: Dictionary = vrm_extension["materialProperties"][i]
-	// 		newmat = _process_vrm_material(newmat, images, vrm_mat_props)
-	// 		spatial_to_shader_mat[oldmat] = newmat
-	// 		spatial_to_shader_mat[newmat] = newmat
-	// 		# print("Replacing shader " + str(oldmat) + "/" + str(oldmat.resource_name) + " with " + str(newmat) + "/" + str(newmat.resource_name))
-	// 		var target_render_priority = 0
-	// 		var delta_render_queue = vrm_mat_props.get("renderQueue", 3000) - 3000
-	// 		if delta_render_queue >= 0:
-	// 			target_render_priority = render_queue_to_priority.find(delta_render_queue)
-	// 			if target_render_priority > 100:
-	// 				target_render_priority = 100
-	// 		else:
-	// 			target_render_priority = -negative_render_queue_to_priority.find(-delta_render_queue)
-	// 			if target_render_priority < -100:
-	// 				target_render_priority = -100
-	// 		# render_priority only makes sense for transparent materials.
-	// 		if newmat.get_class() == "StandardMaterial3D":
-	// 			if int(newmat.transparency) > 0:
-	// 				newmat.render_priority = target_render_priority
-	// 		else:
-	// 			var blend_mode = int(vrm_mat_props["floatProperties"].get("_BlendMode", 0))
-	// 			if blend_mode == int(RenderMode.Transparent) or blend_mode == int(RenderMode.TransparentWithZWrite):
-	// 				newmat.render_priority = target_render_priority
-	// 		materials[i] = newmat
-	// 		var oldpath = oldmat.resource_path
-	// 		oldmat.resource_path = ""
-	// 		newmat.take_over_path(oldpath)
-	// 		ResourceSaver.save(newmat, oldpath)
-	// 	gstate.set_materials(materials)
+		// 	# Material conversions
+		// 	for i in range(materials.size()):
+		// 		var oldmat: Material = materials[i]
+		// 		if (oldmat is ShaderMaterial):
+		// 			# Indicates that the user asked to keep existing materials. Avoid changing them.
+		// 			print("Material " + str(i) + ": " + str(oldmat.resource_name) + " already is shader.")
+		// 			continue
+		// 		var newmat: Material = _process_khr_material(oldmat, gstate.json["materials"][i])
+		// 		var vrm_mat_props: Dictionary = vrm_extension["materialProperties"][i]
+		// 		newmat = _process_vrm_material(newmat, images, vrm_mat_props)
+		// 		spatial_to_shader_mat[oldmat] = newmat
+		// 		spatial_to_shader_mat[newmat] = newmat
+		// 		# print("Replacing shader " + str(oldmat) + "/" + str(oldmat.resource_name) + " with " + str(newmat) + "/" + str(newmat.resource_name))
+		// 		var target_render_priority = 0
+		// 		var delta_render_queue = vrm_mat_props.get("renderQueue", 3000) - 3000
+		// 		if delta_render_queue >= 0:
+		// 			target_render_priority = render_queue_to_priority.find(delta_render_queue)
+		// 			if target_render_priority > 100:
+		// 				target_render_priority = 100
+		// 		else:
+		// 			target_render_priority = -negative_render_queue_to_priority.find(-delta_render_queue)
+		// 			if target_render_priority < -100:
+		// 				target_render_priority = -100
+		// 		# render_priority only makes sense for transparent materials.
+		// 		if newmat.get_class() == "StandardMaterial3D":
+		// 			if int(newmat.transparency) > 0:
+		// 				newmat.render_priority = target_render_priority
+		// 		else:
+		// 			var blend_mode = int(vrm_mat_props["floatProperties"].get("_BlendMode", 0))
+		// 			if blend_mode == int(RenderMode.Transparent) or blend_mode == int(RenderMode.TransparentWithZWrite):
+		// 				newmat.render_priority = target_render_priority
+		// 		materials[i] = newmat
+		// 		var oldpath = oldmat.resource_path
+		// 		oldmat.resource_path = ""
+		// 		newmat.take_over_path(oldpath)
+		// 		ResourceSaver.save(newmat, oldpath)
+		// 	gstate.set_materials(materials)
 
-	// 	var meshes = gstate.get_meshes()
-	// 	for i in range(meshes.size()):
-	// 		var gltfmesh: GLTFMesh = meshes[i]
-	// 		var mesh = gltfmesh.mesh
-	// 		mesh.set_blend_shape_mode(Mesh.BLEND_SHAPE_MODE_NORMALIZED)
-	// 		for surf_idx in range(mesh.get_surface_count()):
-	// 			var surfmat = mesh.get_surface_material(surf_idx)
-	// 			if spatial_to_shader_mat.has(surfmat):
-	// 				mesh.set_surface_material(surf_idx, spatial_to_shader_mat[surfmat])
-	// 			else:
-	// 				printerr("Mesh " + str(i) + " material " + str(surf_idx) + " name " + str(surfmat.resource_name) + " has no replacement material.")
-
-	// func _get_skel_godot_node(gstate: GLTFState, nodes: Array, skeletons: Array, skel_id: int) -> Node:
-	// 	# There's no working direct way to convert from skeleton_id to node_id.
-	// 	# Bugs:
-	// 	# GLTFNode.parent is -1 if skeleton bone.
-	// 	# skeleton_to_node is empty
-	// 	# get_scene_node(skeleton bone) works though might maybe return an attachment.
-	// 	# var skel_node_idx = nodes[gltfskel.roots[0]]
-	// 	# return gstate.get_scene_node(skel_node_idx) # as Skeleton
-	// 	for i in range(nodes.size()):
-	// 		if nodes[i].skeleton == skel_id:
-	// 			return gstate.get_scene_node(i)
-	// 	return null
+		// 	var meshes = gstate.get_meshes()
+		// 	for i in range(meshes.size()):
+		// 		var gltfmesh: GLTFMesh = meshes[i]
+		// 		var mesh = gltfmesh.mesh
+		// 		mesh.set_blend_shape_mode(Mesh.BLEND_SHAPE_MODE_NORMALIZED)
+		// 		for surf_idx in range(mesh.get_surface_count()):
+		// 			var surfmat = mesh.get_surface_material(surf_idx)
+		// 			if spatial_to_shader_mat.has(surfmat):
+		// 				mesh.set_surface_material(surf_idx, spatial_to_shader_mat[surfmat])
+		// 			else:
+		// 				printerr("Mesh " + str(i) + " material " + str(surf_idx) + " name " + str(surfmat.resource_name) + " has no replacement material.")
+	}
+	Skeleton3D *_get_skel_godot_node(Ref<GLTFState> gstate, Array nodes, Array skeletons, int skel_id) {
+		// 	# There's no working direct way to convert from skeleton_id to node_id.
+		// 	# Bugs:
+		// 	# GLTFNode.parent is -1 if skeleton bone.
+		// 	# skeleton_to_node is empty
+		// 	# get_scene_node(skeleton bone) works though might maybe return an attachment.
+		// 	# var skel_node_idx = nodes[gltfskel.roots[0]]
+		// 	# return gstate.get_scene_node(skel_node_idx) # as Skeleton
+		// 	for i in range(nodes.size()):
+		// 		if nodes[i].skeleton == skel_id:
+		// 			return gstate.get_scene_node(i)
+		return nullptr;
+	}
 
 	// class SkelBone:
 	// 	var skel: Skeleton3D
@@ -1436,61 +1446,66 @@ public:
 	// # "rightRingProximal","rightRingIntermediate","rightRingDistal",
 	// # "rightLittleProximal","rightLittleIntermediate","rightLittleDistal", "upperChest"]
 
-	// func _create_meta(root_node: Node, animplayer: AnimationPlayer, vrm_extension: Dictionary, gstate: GLTFState, skeleton: Skeleton3D, humanBones: BoneMap, human_bone_to_idx: Dictionary, pose_diffs: Array[Basis]) -> Resource:
-	// 	var nodes = gstate.get_nodes()
+	Ref<VRMMeta> _create_meta(Node *root_node, AnimationPlayer *animplayer, Dictionary vrm_extension, Ref<GLTFState> gstate, Skeleton3D *skeleton, Ref<BoneMap> humanBones, Dictionary human_bone_to_idx, TypedArray<Basis> pose_diffs) {
+		// 	var nodes = gstate.get_nodes()
 
-	// 	var skeletonPath: NodePath = root_node.get_path_to(skeleton)
-	// 	root_node.set("vrm_skeleton", skeletonPath)
+		// 	var skeletonPath: NodePath = root_node.get_path_to(skeleton)
+		// 	root_node.set("vrm_skeleton", skeletonPath)
 
-	// 	var animPath: NodePath = root_node.get_path_to(animplayer)
-	// 	root_node.set("vrm_animplayer", animPath)
+		// 	var animPath: NodePath = root_node.get_path_to(animplayer)
+		// 	root_node.set("vrm_animplayer", animPath)
 
-	// 	var firstperson = vrm_extension.get("firstPerson", null)
-	// 	var eyeOffset: Vector3;
+		// 	var firstperson = vrm_extension.get("firstPerson", null)
+		// 	var eyeOffset: Vector3;
 
-	// 	if firstperson:
-	// 		# FIXME: Technically this is supposed to be offset relative to the "firstPersonBone"
-	// 		# However, firstPersonBone defaults to Head...
-	// 		# and the semantics of a VR player having their viewpoint out of something which does
-	// 		# not rotate with their head is unclear.
-	// 		# Additionally, the spec schema says this:
-	// 		# "It is assumed that an offset from the head bone to the VR headset is added."
-	// 		# Which implies that the Head bone is used, not the firstPersonBone.
-	// 		var fpboneoffsetxyz = firstperson["firstPersonBoneOffset"] # example: 0,0.06,0
-	// 		eyeOffset = Vector3(fpboneoffsetxyz["x"], fpboneoffsetxyz["y"], fpboneoffsetxyz["z"])
-	// 		if human_bone_to_idx["head"] != -1:
-	// 			eyeOffset = pose_diffs[human_bone_to_idx["head"]] * eyeOffset
+		// 	if firstperson:
+		// 		# FIXME: Technically this is supposed to be offset relative to the "firstPersonBone"
+		// 		# However, firstPersonBone defaults to Head...
+		// 		# and the semantics of a VR player having their viewpoint out of something which does
+		// 		# not rotate with their head is unclear.
+		// 		# Additionally, the spec schema says this:
+		// 		# "It is assumed that an offset from the head bone to the VR headset is added."
+		// 		# Which implies that the Head bone is used, not the firstPersonBone.
+		// 		var fpboneoffsetxyz = firstperson["firstPersonBoneOffset"] # example: 0,0.06,0
+		// 		eyeOffset = Vector3(fpboneoffsetxyz["x"], fpboneoffsetxyz["y"], fpboneoffsetxyz["z"])
+		// 		if human_bone_to_idx["head"] != -1:
+		// 			eyeOffset = pose_diffs[human_bone_to_idx["head"]] * eyeOffset
 
-	// 	vrm_meta = vrm_meta_class.new()
+		Ref<VRMMeta> vrm_meta;
+		vrm_meta.instantiate();
+		return vrm_meta;
 
-	// 	vrm_meta.resource_name = "CLICK TO SEE METADATA"
-	// 	vrm_meta.exporter_version = vrm_extension.get("exporterVersion", "")
-	// 	vrm_meta.spec_version = vrm_extension.get("specVersion", "")
-	// 	var vrm_extension_meta = vrm_extension.get("meta")
-	// 	if vrm_extension_meta:
-	// 		vrm_meta.title = vrm_extension["meta"].get("title", "")
-	// 		vrm_meta.version = vrm_extension["meta"].get("version", "")
-	// 		vrm_meta.author = vrm_extension["meta"].get("author", "")
-	// 		vrm_meta.contact_information = vrm_extension["meta"].get("contactInformation", "")
-	// 		vrm_meta.reference_information = vrm_extension["meta"].get("reference", "")
-	// 		var tex: int = vrm_extension["meta"].get("texture", -1)
-	// 		if tex >= 0:
-	// 			var gltftex: GLTFTexture = gstate.get_textures()[tex]
-	// 			vrm_meta.texture = gstate.get_images()[gltftex.src_image]
-	// 		vrm_meta.allowed_user_name = vrm_extension["meta"].get("allowedUserName", "")
-	// 		vrm_meta.violent_usage = vrm_extension["meta"].get("violentUssageName", "") # Ussage (sic.) in VRM spec
-	// 		vrm_meta.sexual_usage = vrm_extension["meta"].get("sexualUssageName", "") # Ussage (sic.) in VRM spec
-	// 		vrm_meta.commercial_usage = vrm_extension["meta"].get("commercialUssageName", "") # Ussage (sic.) in VRM spec
-	// 		vrm_meta.other_permission_url = vrm_extension["meta"].get("otherPermissionUrl", "")
-	// 		vrm_meta.license_name = vrm_extension["meta"].get("licenseName", "")
-	// 		vrm_meta.other_license_url = vrm_extension["meta"].get("otherLicenseUrl", "")
+		// 	vrm_meta.resource_name = "CLICK TO SEE METADATA"
+		// 	vrm_meta.exporter_version = vrm_extension.get("exporterVersion", "")
+		// 	vrm_meta.spec_version = vrm_extension.get("specVersion", "")
+		// 	var vrm_extension_meta = vrm_extension.get("meta")
+		// 	if vrm_extension_meta:
+		// 		vrm_meta.title = vrm_extension["meta"].get("title", "")
+		// 		vrm_meta.version = vrm_extension["meta"].get("version", "")
+		// 		vrm_meta.author = vrm_extension["meta"].get("author", "")
+		// 		vrm_meta.contact_information = vrm_extension["meta"].get("contactInformation", "")
+		// 		vrm_meta.reference_information = vrm_extension["meta"].get("reference", "")
+		// 		var tex: int = vrm_extension["meta"].get("texture", -1)
+		// 		if tex >= 0:
+		// 			var gltftex: GLTFTexture = gstate.get_textures()[tex]
+		// 			vrm_meta.texture = gstate.get_images()[gltftex.src_image]
+		// 		vrm_meta.allowed_user_name = vrm_extension["meta"].get("allowedUserName", "")
+		// 		vrm_meta.violent_usage = vrm_extension["meta"].get("violentUssageName", "") # Ussage (sic.) in VRM spec
+		// 		vrm_meta.sexual_usage = vrm_extension["meta"].get("sexualUssageName", "") # Ussage (sic.) in VRM spec
+		// 		vrm_meta.commercial_usage = vrm_extension["meta"].get("commercialUssageName", "") # Ussage (sic.) in VRM spec
+		// 		vrm_meta.other_permission_url = vrm_extension["meta"].get("otherPermissionUrl", "")
+		// 		vrm_meta.license_name = vrm_extension["meta"].get("licenseName", "")
+		// 		vrm_meta.other_license_url = vrm_extension["meta"].get("otherLicenseUrl", "")
 
-	// 	vrm_meta.eye_offset = eyeOffset
-	// 	vrm_meta.humanoid_bone_mapping = humanBones
-	// 	vrm_meta.humanoid_skeleton_path = skeletonPath
-	// 	return vrm_meta
+		// 	vrm_meta.eye_offset = eyeOffset
+		// 	vrm_meta.humanoid_bone_mapping = humanBones
+		// 	vrm_meta.humanoid_skeleton_path = skeletonPath
+		// 	return vrm_meta
+	}
 
-	// func _create_animation_player(animplayer: AnimationPlayer, vrm_extension: Dictionary, gstate: GLTFState, human_bone_to_idx: Dictionary, pose_diffs: Array[Basis]) -> AnimationPlayer:
+	AnimationPlayer *_create_animation_player(AnimationPlayer *animplayer, Dictionary vrm_extension, Ref<GLTFState> gstate, Dictionary human_bone_to_idx, TypedArray<Basis> pose_diffs) {
+		return animplayer;
+	}
 	// 	# Remove all glTF animation players for safety.
 	// 	# VRM does not support animation import in this way.
 	// 	for i in range(gstate.get_animation_players_count(0)):
@@ -1713,102 +1728,102 @@ public:
 	// 	animplayer.add_animation_library("vrm", animation_library)
 	// 	return animplayer
 
-	// func _parse_secondary_node(secondary_node: Node, vrm_extension: Dictionary, gstate: GLTFState, pose_diffs: Array[Basis], is_vrm_0: bool) -> void:
-	// 	var nodes = gstate.get_nodes()
-	// 	var skeletons = gstate.get_skeletons()
+	void _parse_secondary_node(Node *secondary_node, Dictionary vrm_extension, Ref<GLTFState> gstate, TypedArray<Basis> pose_diffs, bool is_vrm_0) {
+		// 	var nodes = gstate.get_nodes()
+		// 	var skeletons = gstate.get_skeletons()
 
-	// 	var offset_flip: Vector3 = Vector3(-1,1,-1) if is_vrm_0 else Vector3(1,1,1)
+		// 	var offset_flip: Vector3 = Vector3(-1,1,-1) if is_vrm_0 else Vector3(1,1,1)
 
-	// 	var collider_groups: Array = [].duplicate()
-	// 	for cgroup in vrm_extension["secondaryAnimation"]["colliderGroups"]:
-	// 		var gltfnode: GLTFNode = nodes[int(cgroup["node"])]
-	// 		var collider_group = vrm_collidergroup.new()
-	// 		collider_group.sphere_colliders = [].duplicate() # HACK HACK HACK
-	// 		var pose_diff: Basis = Basis()
-	// 		if gltfnode.skeleton == -1:
-	// 			var found_node: Node = gstate.get_scene_node(int(cgroup["node"]))
-	// 			collider_group.skeleton_or_node = secondary_node.get_path_to(found_node)
-	// 			collider_group.bone = ""
-	// 			collider_group.resource_name = found_node.name
-	// 		else:
-	// 			var skeleton: Skeleton3D = _get_skel_godot_node(gstate, nodes, skeletons,gltfnode.skeleton)
-	// 			collider_group.skeleton_or_node = secondary_node.get_path_to(skeleton)
-	// 			collider_group.bone = nodes[int(cgroup["node"])].resource_name
-	// 			collider_group.resource_name = collider_group.bone
-	// 			pose_diff = pose_diffs[skeleton.find_bone(collider_group.bone)]
+		// 	var collider_groups: Array = [].duplicate()
+		// 	for cgroup in vrm_extension["secondaryAnimation"]["colliderGroups"]:
+		// 		var gltfnode: GLTFNode = nodes[int(cgroup["node"])]
+		// 		var collider_group = vrm_collidergroup.new()
+		// 		collider_group.sphere_colliders = [].duplicate() # HACK HACK HACK
+		// 		var pose_diff: Basis = Basis()
+		// 		if gltfnode.skeleton == -1:
+		// 			var found_node: Node = gstate.get_scene_node(int(cgroup["node"]))
+		// 			collider_group.skeleton_or_node = secondary_node.get_path_to(found_node)
+		// 			collider_group.bone = ""
+		// 			collider_group.resource_name = found_node.name
+		// 		else:
+		// 			var skeleton: Skeleton3D = _get_skel_godot_node(gstate, nodes, skeletons,gltfnode.skeleton)
+		// 			collider_group.skeleton_or_node = secondary_node.get_path_to(skeleton)
+		// 			collider_group.bone = nodes[int(cgroup["node"])].resource_name
+		// 			collider_group.resource_name = collider_group.bone
+		// 			pose_diff = pose_diffs[skeleton.find_bone(collider_group.bone)]
 
-	// 		for collider_info in cgroup["colliders"]:
-	// 			var offset_obj = collider_info.get("offset", {"x": 0.0, "y": 0.0, "z": 0.0})
-	// 			var local_pos: Vector3 = pose_diff * offset_flip * Vector3(offset_obj["x"], offset_obj["y"], offset_obj["z"])
-	// 			var radius: float = collider_info.get("radius", 0.0)
-	// 			collider_group.sphere_colliders.append(Plane(local_pos, radius))
-	// 		collider_groups.append(collider_group)
+		// 		for collider_info in cgroup["colliders"]:
+		// 			var offset_obj = collider_info.get("offset", {"x": 0.0, "y": 0.0, "z": 0.0})
+		// 			var local_pos: Vector3 = pose_diff * offset_flip * Vector3(offset_obj["x"], offset_obj["y"], offset_obj["z"])
+		// 			var radius: float = collider_info.get("radius", 0.0)
+		// 			collider_group.sphere_colliders.append(Plane(local_pos, radius))
+		// 		collider_groups.append(collider_group)
 
-	// 	var spring_bones: Array = [].duplicate()
-	// 	for sbone in vrm_extension["secondaryAnimation"]["boneGroups"]:
-	// 		if sbone.get("bones", []).size() == 0:
-	// 			continue
-	// 		var first_bone_node: int = sbone["bones"][0]
-	// 		var gltfnode: GLTFNode = nodes[int(first_bone_node)]
-	// 		var skeleton: Skeleton3D = _get_skel_godot_node(gstate, nodes, skeletons,gltfnode.skeleton)
+		// 	var spring_bones: Array = [].duplicate()
+		// 	for sbone in vrm_extension["secondaryAnimation"]["boneGroups"]:
+		// 		if sbone.get("bones", []).size() == 0:
+		// 			continue
+		// 		var first_bone_node: int = sbone["bones"][0]
+		// 		var gltfnode: GLTFNode = nodes[int(first_bone_node)]
+		// 		var skeleton: Skeleton3D = _get_skel_godot_node(gstate, nodes, skeletons,gltfnode.skeleton)
 
-	// 		var spring_bone = VRMSpringBone.new()
-	// 		spring_bone.skeleton = secondary_node.get_path_to(skeleton)
-	// 		spring_bone.comment = sbone.get("comment", "")
-	// 		spring_bone.stiffness_force = float(sbone.get("stiffiness", 1.0))
-	// 		spring_bone.gravity_power = float(sbone.get("gravityPower", 0.0))
-	// 		var gravity_dir = sbone.get("gravity_dir", {"x": 0.0, "y": -1.0, "z": 0.0})
-	// 		spring_bone.gravity_dir = Vector3(gravity_dir["x"], gravity_dir["y"], gravity_dir["z"])
-	// 		spring_bone.drag_force = float(sbone.get("drag_force", 0.4))
-	// 		spring_bone.hit_radius = float(sbone.get("hitRadius", 0.02))
+		// 		var spring_bone = VRMSpringBone.new()
+		// 		spring_bone.skeleton = secondary_node.get_path_to(skeleton)
+		// 		spring_bone.comment = sbone.get("comment", "")
+		// 		spring_bone.stiffness_force = float(sbone.get("stiffiness", 1.0))
+		// 		spring_bone.gravity_power = float(sbone.get("gravityPower", 0.0))
+		// 		var gravity_dir = sbone.get("gravity_dir", {"x": 0.0, "y": -1.0, "z": 0.0})
+		// 		spring_bone.gravity_dir = Vector3(gravity_dir["x"], gravity_dir["y"], gravity_dir["z"])
+		// 		spring_bone.drag_force = float(sbone.get("drag_force", 0.4))
+		// 		spring_bone.hit_radius = float(sbone.get("hitRadius", 0.02))
 
-	// 		if spring_bone.comment != "":
-	// 			spring_bone.resource_name = spring_bone.comment.split("\n")[0]
-	// 		else:
-	// 			var tmpname: String = ""
-	// 			if sbone["bones"].size() > 1:
-	// 				tmpname += " + " + str(sbone["bones"].size() - 1) + " roots"
-	// 			tmpname = nodes[int(first_bone_node)].resource_name + tmpname
-	// 			spring_bone.resource_name = tmpname
+		// 		if spring_bone.comment != "":
+		// 			spring_bone.resource_name = spring_bone.comment.split("\n")[0]
+		// 		else:
+		// 			var tmpname: String = ""
+		// 			if sbone["bones"].size() > 1:
+		// 				tmpname += " + " + str(sbone["bones"].size() - 1) + " roots"
+		// 			tmpname = nodes[int(first_bone_node)].resource_name + tmpname
+		// 			spring_bone.resource_name = tmpname
 
-	// 		spring_bone.collider_groups = [].duplicate() # HACK HACK HACK
-	// 		for cgroup_idx in sbone.get("colliderGroups", []):
-	// 			spring_bone.collider_groups.append(collider_groups[int(cgroup_idx)])
+		// 		spring_bone.collider_groups = [].duplicate() # HACK HACK HACK
+		// 		for cgroup_idx in sbone.get("colliderGroups", []):
+		// 			spring_bone.collider_groups.append(collider_groups[int(cgroup_idx)])
 
-	// 		spring_bone.root_bones = [].duplicate() # HACK HACK HACK
-	// 		for bone_node in sbone["bones"]:
-	// 			var bone_name:String = nodes[int(bone_node)].resource_name
-	// 			if skeleton.find_bone(bone_name) == -1:
-	// 				# Note that we make an assumption that a given SpringBone object is
-	// 				# only part of a single Skeleton*. This error might print if a given
-	// 				# SpringBone references bones from multiple Skeleton's.
-	// 				printerr("Failed to find node " + str(bone_node) + " in skel " + str(skeleton))
-	// 			else:
-	// 				spring_bone.root_bones.append(bone_name)
+		// 		spring_bone.root_bones = [].duplicate() # HACK HACK HACK
+		// 		for bone_node in sbone["bones"]:
+		// 			var bone_name:String = nodes[int(bone_node)].resource_name
+		// 			if skeleton.find_bone(bone_name) == -1:
+		// 				# Note that we make an assumption that a given SpringBone object is
+		// 				# only part of a single Skeleton*. This error might print if a given
+		// 				# SpringBone references bones from multiple Skeleton's.
+		// 				printerr("Failed to find node " + str(bone_node) + " in skel " + str(skeleton))
+		// 			else:
+		// 				spring_bone.root_bones.append(bone_name)
 
-	// 		# Center commonly points outside of the glTF Skeleton, such as the root node.
-	// 		spring_bone.center_node = secondary_node.get_path_to(secondary_node)
-	// 		spring_bone.center_bone = ""
-	// 		var center_node_idx = sbone.get("center", -1)
-	// 		if center_node_idx != -1:
-	// 			var center_gltfnode: GLTFNode = nodes[int(center_node_idx)]
-	// 			var bone_name:String = center_gltfnode.resource_name
-	// 			if center_gltfnode.skeleton == gltfnode.skeleton and skeleton.find_bone(bone_name) != -1:
-	// 				spring_bone.center_bone = bone_name
-	// 				spring_bone.center_node = NodePath()
-	// 			else:
-	// 				spring_bone.center_bone = ""
-	// 				spring_bone.center_node = secondary_node.get_path_to(gstate.get_scene_node(int(center_node_idx)))
-	// 				if spring_bone.center_node == NodePath():
-	// 					printerr("Failed to find center scene node " + str(center_node_idx))
-	// 					spring_bone.center_node = secondary_node.get_path_to(secondary_node) # Fallback
+		// 		# Center commonly points outside of the glTF Skeleton, such as the root node.
+		// 		spring_bone.center_node = secondary_node.get_path_to(secondary_node)
+		// 		spring_bone.center_bone = ""
+		// 		var center_node_idx = sbone.get("center", -1)
+		// 		if center_node_idx != -1:
+		// 			var center_gltfnode: GLTFNode = nodes[int(center_node_idx)]
+		// 			var bone_name:String = center_gltfnode.resource_name
+		// 			if center_gltfnode.skeleton == gltfnode.skeleton and skeleton.find_bone(bone_name) != -1:
+		// 				spring_bone.center_bone = bone_name
+		// 				spring_bone.center_node = NodePath()
+		// 			else:
+		// 				spring_bone.center_bone = ""
+		// 				spring_bone.center_node = secondary_node.get_path_to(gstate.get_scene_node(int(center_node_idx)))
+		// 				if spring_bone.center_node == NodePath():
+		// 					printerr("Failed to find center scene node " + str(center_node_idx))
+		// 					spring_bone.center_node = secondary_node.get_path_to(secondary_node) # Fallback
 
-	// 		spring_bones.append(spring_bone)
+		// 		spring_bones.append(spring_bone)
 
-	// 	secondary_node.set_script(VRMSecondary)
-	// 	secondary_node.set("spring_bones", spring_bones)
-	// 	secondary_node.set("collider_groups", collider_groups)
-
+		// 	secondary_node.set_script(vrm_secondary)
+		// 	secondary_node.set("spring_bones", spring_bones)
+		// 	secondary_node.set("collider_groups", collider_groups)
+	}
 	// func _add_joints_recursive(new_joints_set: Dictionary, gltf_nodes: Array, bone: int, include_child_meshes: bool=false) -> void:
 	// 	if bone < 0:
 	// 		return
@@ -1833,128 +1848,148 @@ public:
 
 	// 	obj["skins"].push_back(new_skin)
 
-	// func _add_vrm_nodes_to_skin(obj: Dictionary) -> bool:
-	// 	var vrm_extension: Dictionary = obj.get("extensions", {}).get("VRM", {})
-	// 	if not vrm_extension.has("humanoid"):
-	// 		return false
-	// 	var new_joints_set = {}.duplicate()
+	bool _add_vrm_nodes_to_skin(Dictionary obj) {
+		// 	var vrm_extension: Dictionary = obj.get("extensions", {}).get("VRM", {})
+		// 	if not vrm_extension.has("humanoid"):
+		// 		return false
+		// 	var new_joints_set = {}.duplicate()
 
-	// 	var secondaryAnimation = vrm_extension.get("secondaryAnimation", {})
-	// 	for bone_group in secondaryAnimation.get("boneGroups", []):
-	// 		for bone in bone_group["bones"]:
-	// 			_add_joints_recursive(new_joints_set, obj["nodes"], int(bone), true)
+		// 	var secondaryAnimation = vrm_extension.get("secondaryAnimation", {})
+		// 	for bone_group in secondaryAnimation.get("boneGroups", []):
+		// 		for bone in bone_group["bones"]:
+		// 			_add_joints_recursive(new_joints_set, obj["nodes"], int(bone), true)
 
-	// 	for collider_group in secondaryAnimation.get("colliderGroups", []):
-	// 		if int(collider_group["node"]) >= 0:
-	// 			new_joints_set[int(collider_group["node"])] = true
+		// 	for collider_group in secondaryAnimation.get("colliderGroups", []):
+		// 		if int(collider_group["node"]) >= 0:
+		// 			new_joints_set[int(collider_group["node"])] = true
 
-	// 	var firstPerson = vrm_extension.get("firstPerson", {})
-	// 	if firstPerson.get("firstPersonBone", -1) >= 0:
-	// 		new_joints_set[int(firstPerson["firstPersonBone"])] = true
+		// 	var firstPerson = vrm_extension.get("firstPerson", {})
+		// 	if firstPerson.get("firstPersonBone", -1) >= 0:
+		// 		new_joints_set[int(firstPerson["firstPersonBone"])] = true
 
-	// 	for human_bone in vrm_extension["humanoid"]["humanBones"]:
-	// 		_add_joints_recursive(new_joints_set, obj["nodes"], int(human_bone["node"]), false)
+		// 	for human_bone in vrm_extension["humanoid"]["humanBones"]:
+		// 		_add_joints_recursive(new_joints_set, obj["nodes"], int(human_bone["node"]), false)
 
-	// 	_add_joint_set_as_skin(obj, new_joints_set)
+		// 	_add_joint_set_as_skin(obj, new_joints_set)
+		return true;
+	}
 
-	// 	return true
+	virtual Error import_preflight(Ref<GLTFState> gstate) override {
+		Dictionary gltf_json_parsed = gstate->get_json();
+		if (!_add_vrm_nodes_to_skin(gltf_json_parsed)) {
+			print_error("Failed to find required VRM keys in json");
+			return ERR_INVALID_DATA;
+		}
+		return OK;
+	}
 
-	// func _import_preflight(gstate : GLTFState, psa=PackedStringArray(), psa2: Variant=null) -> int:
-	// 	var gltf_json_parsed: Dictionary = gstate.json
-	// 	if not _add_vrm_nodes_to_skin(gltf_json_parsed):
-	// 		push_error("Failed to find required VRM keys in json")
-	// 		return ERR_INVALID_DATA
-	// 	return OK
+	TypedArray<Basis> apply_retarget(Ref<GLTFState> gstate, Node *root_node, Skeleton3D *skeleton, Ref<BoneMap> bone_map) {
+		NodePath skeletonPath = root_node->get_path_to(skeleton);
+		skeleton_rename(gstate, root_node, skeleton, bone_map);
+		TypedArray<Basis> poses = skeleton_rotate(root_node, skeleton, bone_map);
+		apply_rotation(root_node, skeleton);
+		return poses;
+	}
 
-	// func apply_retarget(gstate : GLTFState, root_node: Node, skeleton: Skeleton3D, bone_map: BoneMap) -> Array[Basis]:
-	// 	var skeletonPath: NodePath = root_node.get_path_to(skeleton)
+	Error _import_post(Ref<GLTFState> gstate, Node *node) {
+		Ref<GLTFDocument> gltf;
+		gltf.instantiate();
+		VRMTopLevel *root_node = memnew(VRMTopLevel);
+		root_node->replace_by(gltf->generate_scene(gstate, 30), true);
+		bool is_vrm_0 = true;
+		Dictionary gltf_json = gstate->get_json();
+		Dictionary extension = gltf_json["extensions"];
+		Dictionary vrm_extension = extension["VRM"];
 
-	// 	skeleton_rename(gstate, root_node, skeleton, bone_map)
-	// 	var poses = skeleton_rotate(root_node, skeleton, bone_map)
-	// 	apply_rotation(root_node, skeleton)
-	// 	return poses
+		Dictionary human_bone_to_idx;
+		// Ignoring in ["humanoid"]: armStretch, legStretch, upperArmTwist
+		// lowerArmTwist, upperLegTwist, lowerLegTwist, feetSpacing,
+		// and hasTranslationDoF
+		Dictionary humanoid = vrm_extension["humanoid"];
+		Dictionary human_bones = humanoid["humanBones"];
+		for (int32_t human_bone_i = 0; human_bone_i < human_bones.keys().size(); human_bone_i++) {
+			Dictionary human_bone = human_bones[human_bones.keys()[human_bone_i]];
+			human_bone_to_idx[human_bone["bone"]] = int(human_bone["node"]);
+			// Unity Mecanim properties:
+			// Ignoring: useDefaultValues
+			// Ignoring: min
+			// Ignoring: max
+			// Ignoring: center
+			// Ingoring: axisLength
+		}
 
-	// func _import_post(gstate : GLTFState, node : Node) -> int:
+		TypedArray<GLTFSkeleton> skeletons = gstate->get_skeletons();
+		Ref<GLTFNode> hipsNode = gstate->get_nodes()[human_bone_to_idx["hips"]];
+		ERR_FAIL_NULL_V_MSG(hipsNode, ERR_INVALID_DATA, "Cannot import VRM. There is no hip bone defined.");
+		Skeleton3D *skeleton = _get_skel_godot_node(gstate, gstate->get_nodes(), skeletons, hipsNode->get_skeleton());
+		Array gltfnodes = gstate->get_nodes();
 
-	// 	var gltf : GLTFDocument = GLTFDocument.new()
-	// 	var root_node: Node = gltf.generate_scene(gstate, 30)
+		Ref<BoneMap> humanBones;
+		humanBones.instantiate();
+		humanBones->set_profile(memnew(SkeletonProfileHumanoid));
 
-	// 	var is_vrm_0: bool = true
+		vrm_constants_class vrmconst_inst = vrm_constants_class(is_vrm_0); //vrm 0.0
+		for (int32_t human_bone_name_i = 0; human_bone_name_i < human_bone_to_idx.keys().size(); human_bone_name_i++) {
+			String human_bone_name = human_bone_to_idx.keys()[human_bone_name_i];
+			Ref<Resource> human_bone = human_bone_to_idx[human_bone_name];
+			ERR_CONTINUE(human_bone.is_null());
+			String resource_name = human_bone->get_name();
+			humanBones->set_skeleton_bone_name(vrmconst_inst.vrm_to_human_bone[resource_name], resource_name);
+		}
 
-	// 	var gltf_json : Dictionary = gstate.json
-	// 	var vrm_extension : Dictionary = gltf_json["extensions"]["VRM"]
+		if (is_vrm_0) {
+			// VRM 0.0 has models facing backwards due to a spec error (flipped z instead of x).
+			print_line("Pre-rotate the VRM 0.0 model.");
+			rotate_scene_180(root_node);
+			print_line("Post-rotate the VRM 0.0 model.");
+		}
 
-	// 	var human_bone_to_idx: Dictionary = {}
-	// 	# Ignoring in ["humanoid"]: armStretch, legStretch, upperArmTwist
-	// 	# lowerArmTwist, upperLegTwist, lowerLegTwist, feetSpacing,
-	// 	# and hasTranslationDoF
-	// 	for human_bone in vrm_extension["humanoid"]["humanBones"]:
-	// 		human_bone_to_idx[human_bone["bone"]] = int(human_bone["node"])
-	// 		# Unity Mecanim properties:
-	// 		# Ignoring: useDefaultValues
-	// 		# Ignoring: min
-	// 		# Ignoring: max
-	// 		# Ignoring: center
-	// 		# Ingoring: axisLength
+		bool do_retarget = true;
 
-	// 	var skeletons = gstate.get_skeletons()
-	// 	var hipsNode: GLTFNode = gstate.nodes[human_bone_to_idx["hips"]]
-	// 	var skeleton: Skeleton3D = _get_skel_godot_node(gstate, gstate.nodes, skeletons, hipsNode.skeleton)
-	// 	var gltfnodes: Array = gstate.nodes
+		TypedArray<Basis> pose_diffs;
+		if (do_retarget) {
+			pose_diffs = apply_retarget(gstate, root_node, skeleton, humanBones);
+		} else {
+			for (int32_t bone_i = 0; bone_i < skeleton->get_bone_count(); bone_i++) {
+				pose_diffs.append(Basis());
+			}
+		}
 
-	// 	var humanBones: BoneMap = BoneMap.new()
-	// 	humanBones.profile = SkeletonProfileHumanoid.new()
+		_update_materials(vrm_extension, gstate);
 
-	// 	var vrmconst_inst = vrm_constants_class.new(is_vrm_0) # vrm 0.0
-	// 	for humanBoneName in human_bone_to_idx:
-	// 		humanBones.set_skeleton_bone_name(vrmconst_inst.vrm_to_human_bone[humanBoneName], gltfnodes[human_bone_to_idx[humanBoneName]].resource_name)
+		AnimationPlayer *animplayer = memnew(AnimationPlayer);
+		animplayer->set_name("anim");
+		root_node->add_child(animplayer, true);
+		animplayer->set_owner(root_node);
+		_create_animation_player(animplayer, vrm_extension, gstate, human_bone_to_idx, pose_diffs);
 
-	// 	if is_vrm_0:
-	// 		# VRM 0.0 has models facing backwards due to a spec error (flipped z instead of x)
-	// 		print("Pre-rotate")
-	// 		rotate_scene_180(root_node)
-	// 		print("Post-rotate")
+		Ref<Resource> vrm_meta = _create_meta(root_node, animplayer, vrm_extension, gstate, skeleton, humanBones, human_bone_to_idx, pose_diffs);
+		root_node->set("vrm_meta", vrm_meta);
+		root_node->set("vrm_secondary", NodePath());
 
-	// 	var do_retarget = true
+		if (!vrm_extension.has("secondaryAnimation")) {
+			return OK;
+		}
+		Array collider_groups = vrm_extension["secondaryAnimation"].get("colliderGroups");
+		Array bone_groups = vrm_extension["secondaryAnimation"].get("boneGroups");
+		if (!(collider_groups.size() > 0 || bone_groups.size() > 0)) {
+			return OK;
+		}
+		Node *secondary_node = root_node->get_node_or_null(NodePath("secondary"));
+		if (secondary_node == nullptr) {
+			secondary_node = memnew(Node3D);
+			root_node->add_child(secondary_node, true);
+			secondary_node->set_owner(root_node);
+			secondary_node->set_name("secondary");
+		}
 
-	// 	var pose_diffs: Array[Basis]
-	// 	if do_retarget:
-	// 		pose_diffs = apply_retarget(gstate, root_node, skeleton, humanBones)
-	// 	else:
-	// 		# resize is busted for TypedArray and crashes Godot
-	// 		for i in range(skeleton.get_bone_count()):
-	// 			pose_diffs.append(Basis.IDENTITY)
+		NodePath secondary_path = root_node->get_path_to(secondary_node);
+		root_node->set("vrm_secondary", secondary_path);
 
-	// 	_update_materials(vrm_extension, gstate)
+		_parse_secondary_node(secondary_node, vrm_extension, gstate, pose_diffs, is_vrm_0);
 
-	// 	var animplayer = AnimationPlayer.new()
-	// 	animplayer.name = "anim"
-	// 	root_node.add_child(animplayer, true)
-	// 	animplayer.owner = root_node
-	// 	_create_animation_player(animplayer, vrm_extension, gstate, human_bone_to_idx, pose_diffs)
-
-	// 	root_node.set_script(vrm_top_level)
-
-	// 	var vrm_meta: Resource = _create_meta(root_node, animplayer, vrm_extension, gstate, skeleton, humanBones, human_bone_to_idx, pose_diffs)
-	// 	root_node.set("vrm_meta", vrm_meta)
-	// 	root_node.set("VRMSecondary", NodePath())
-
-	// 	if (vrm_extension.has("secondaryAnimation") and \
-// 			(vrm_extension["secondaryAnimation"].get("colliderGroups", []).size() > 0 or \
-// 			vrm_extension["secondaryAnimation"].get("boneGroups", []).size() > 0)):
-
-	// 		var secondary_node: Node = root_node.get_node("secondary")
-	// 		if secondary_node == null:
-	// 			secondary_node = Node3D.new()
-	// 			root_node.add_child(secondary_node, true)
-	// 			secondary_node.set_owner(root_node)
-	// 			secondary_node.set_name("secondary")
-
-	// 		var secondary_path: NodePath = root_node.get_path_to(secondary_node)
-	// 		root_node.set("VRMSecondary", secondary_path)
-
-	// 		_parse_secondary_node(secondary_node, vrm_extension, gstate, pose_diffs, is_vrm_0)
-	// 	return OK
+		return OK;
+	}
 };
 
 class VRMEditorSceneFormatImporter : public EditorSceneFormatImporter {
