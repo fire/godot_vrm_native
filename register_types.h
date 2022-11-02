@@ -937,19 +937,20 @@ public:
 			Dictionary lods; // mesh.surface_get_lods(surf_idx) # get_lods(mesh, surf_idx);
 			Ref<Material> mat = mesh->get_surface_material(surf_idx);
 			Vector<Vector3> vertarr = arr[ArrayMesh::ARRAY_VERTEX];
-			int vert_arr_len = vertarr.size();
-			for (int32_t i = 0; i < vert_arr_len; i++) {
+			for (int32_t i = 0; i < vertarr.size(); i++) {
 				vertarr.write[i] = Vector3(-1, 1, -1) * vertarr[i];
 			}
 			if (Variant(arr[ArrayMesh::ARRAY_NORMAL]).get_type() == Variant::Type::PACKED_VECTOR3_ARRAY) {
 				Vector<Vector3> normarr = arr[ArrayMesh::ARRAY_NORMAL];
-				for (int32_t i = 0; i < vert_arr_len; i++) {
+				for (int32_t i = 0; i < normarr.size(); i++) {
 					normarr.write[i] = Vector3(-1, 1, -1) * normarr[i];
 				}
 			}
 			if (Variant(arr[ArrayMesh::ARRAY_TANGENT]).get_type() == Variant::Type::PACKED_FLOAT32_ARRAY) {
 				Vector<float> tangarr = arr[ArrayMesh::ARRAY_TANGENT];
-				for (int32_t i = 0; i < vert_arr_len; i++) {
+				for (int32_t i = 0; i < tangarr.size(); i++) {
+					ERR_BREAK(i * 4 >= tangarr.size());
+					ERR_BREAK((i * 4) + 2 >= tangarr.size());
 					tangarr.write[i * 4] = -tangarr[i * 4];
 					tangarr.write[i * 4 + 2] = -tangarr[i * 4 + 2];
 				}
@@ -958,18 +959,21 @@ public:
 				Array blend_shape_mesh_array;
 				blend_shape_mesh_array.resize(ArrayMesh::ARRAY_MAX);
 				vertarr = blend_shape_mesh_array[ArrayMesh::ARRAY_VERTEX];
-				for (int32_t i = 0; i < vert_arr_len; i++) {
+				for (int32_t i = 0; i < vertarr.size(); i++) {
 					vertarr.write[i] = Vector3(-1, 1, -1) * vertarr[i];
 				}
 				if (Variant(blend_shape_mesh_array[ArrayMesh::ARRAY_NORMAL]).get_type() == Variant::Type::PACKED_VECTOR3_ARRAY) {
 					Vector<Vector3> normarr = blend_shape_mesh_array[ArrayMesh::ARRAY_NORMAL];
-					for (int32_t i = 0; i < vert_arr_len; i++) {
+					for (int32_t i = 0; i < normarr.size(); i++) {
+						ERR_BREAK(i >= normarr.size());
 						normarr.write[i] = Vector3(-1, 1, -1) * normarr[i];
 					}
 				}
 				if (Variant(blend_shape_mesh_array[ArrayMesh::ARRAY_TANGENT]).get_type() == Variant::Type::PACKED_FLOAT32_ARRAY) {
 					Vector<float> tangarr = blend_shape_mesh_array[ArrayMesh::ARRAY_TANGENT];
-					for (int32_t i = 0; i < vert_arr_len; i++) {
+					for (int32_t i = 0; i < tangarr.size(); i++) {
+						ERR_BREAK(i * 4 >= tangarr.size());
+						ERR_BREAK((i * 4) + 2 >= tangarr.size());
 						tangarr.write[i * 4] = -tangarr[i * 4];
 						tangarr.write[i * 4 + 2] = -tangarr[i * 4 + 2];
 					}
@@ -1054,20 +1058,28 @@ public:
 		p_skeleton->set_unique_name_in_owner(true);
 	}
 
-	void rotate_scene_180_inner(Node3D *p_node, Dictionary mesh_set, Dictionary skin_set) {
-		// 	if p_node is Skeleton3D:
-		// 		for bone_idx in range(p_node.get_bone_count()):
-		// 			var rest: Transform3D = ROTATE_180_TRANSFORM * p_node.get_bone_rest(bone_idx) * ROTATE_180_TRANSFORM
-		// 			p_node.set_bone_rest(bone_idx, rest)
-		// 			p_node.set_bone_pose_rotation(bone_idx, Quaternion(ROTATE_180_BASIS) * p_node.get_bone_pose_rotation(bone_idx) * Quaternion(ROTATE_180_BASIS))
-		// 			p_node.set_bone_pose_scale(bone_idx, Vector3.ONE)
-		// 			p_node.set_bone_pose_position(bone_idx, rest.origin)
-		// 	p_node.transform = ROTATE_180_TRANSFORM * p_node.transform * ROTATE_180_TRANSFORM
-		// 	if p_node is ImporterMeshInstance3D:
-		// 		mesh_set[p_node.mesh] = true
-		// 		skin_set[p_node.skin] = true
-		// 	for child in p_node.get_children():
-		// 		rotate_scene_180_inner(child, mesh_set, skin_set)
+	void rotate_scene_180_inner(Node3D *p_node, Dictionary &mesh_set, Dictionary &skin_set) {
+		ERR_FAIL_NULL(p_node);
+		Skeleton3D *skeleton = cast_to<Skeleton3D>(p_node);
+		if (skeleton) {
+			for (int32_t bone_idx = 0; bone_idx < skeleton->get_bone_count(); bone_idx++) {
+				Transform3D rest = ROTATE_180_TRANSFORM * skeleton->get_bone_rest(bone_idx) * ROTATE_180_TRANSFORM;
+				skeleton->set_bone_rest(bone_idx, rest);
+				skeleton->set_bone_pose_rotation(bone_idx, Quaternion(ROTATE_180_BASIS) * skeleton->get_bone_pose_rotation(bone_idx) * Quaternion(ROTATE_180_BASIS));
+				skeleton->set_bone_pose_scale(bone_idx, Vector3(1.0f, 1.0f, 1.0f));
+				skeleton->set_bone_pose_position(bone_idx, rest.origin);
+			}
+		}
+		p_node->get_transform() = ROTATE_180_TRANSFORM * p_node->get_transform() * ROTATE_180_TRANSFORM;
+		ImporterMeshInstance3D *importer_mesh_instance_3d = cast_to<ImporterMeshInstance3D>(p_node);
+		if (importer_mesh_instance_3d) {
+			mesh_set[importer_mesh_instance_3d->get_mesh()] = true;
+			skin_set[importer_mesh_instance_3d->get_skin()] = true;
+		}
+		for (int32_t child_i = 0; child_i < p_node->get_child_count(); child_i++) {
+			Node3D *child = cast_to<Node3D>(p_node->get_child(child_i));
+			rotate_scene_180_inner(child, mesh_set, skin_set);
+		}
 	}
 
 	void rotate_scene_180(Node3D *p_scene) {
@@ -1080,6 +1092,9 @@ public:
 		}
 		for (int32_t skin_i = 0; skin_i < skin_set.keys().size(); skin_i++) {
 			Ref<Skin> skin = skin_set.keys()[skin_i];
+			if (skin.is_null()) {
+				continue;
+			}
 			for (int32_t bind_i = 0; bind_i < skin->get_bind_count(); bind_i++) {
 				skin->set_bind_pose(bind_i, ROTATE_180_TRANSFORM * skin->get_bind_pose(bind_i));
 			}
