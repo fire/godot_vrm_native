@@ -915,74 +915,92 @@ public:
 	const Basis ROTATE_180_BASIS = Basis(Vector3(-1, 0, 0), Vector3(0, 1, 0), Vector3(0, 0, -1));
 	const Transform3D ROTATE_180_TRANSFORM = Transform3D(ROTATE_180_BASIS, Vector3());
 
-	// func adjust_mesh_zforward(mesh: ImporterMesh):
-	// 	# MESH and SKIN data divide, to compensate for object position multiplying.
-	// 	var surf_count: int = mesh.get_surface_count()
-	// 	var surf_data_by_mesh = [].duplicate()
-	// 	var blendshapes = []
-	// 	for bsidx in mesh.get_blend_shape_count():
-	// 		blendshapes.append(mesh.get_blend_shape_name(bsidx))
-	// 	for surf_idx in range(surf_count):
-	// 		var prim: int = mesh.get_surface_primitive_type(surf_idx)
-	// 		var fmt_compress_flags: int = mesh.get_surface_format(surf_idx)
-	// 		var arr: Array = mesh.get_surface_arrays(surf_idx)
-	// 		var name: String = mesh.get_surface_name(surf_idx)
-	// 		var bscount = mesh.get_blend_shape_count()
-	// 		var bsarr: Array = []
-	// 		for bsidx in range(bscount):
-	// 			bsarr.append(mesh.get_surface_blend_shape_arrays(surf_idx, bsidx))
-	// 		var lods: Dictionary = {} # mesh.surface_get_lods(surf_idx) # get_lods(mesh, surf_idx)
-	// 		var mat: Material = mesh.get_surface_material(surf_idx)
-	// 		var vert_arr_len: int = (len(arr[ArrayMesh.ARRAY_VERTEX]))
-	// 		var vertarr: PackedVector3Array = arr[ArrayMesh.ARRAY_VERTEX]
-	// 		for i in range(vert_arr_len):
-	// 			vertarr[i] = Vector3(-1, 1, -1) * vertarr[i]
-	// 		if typeof(arr[ArrayMesh.ARRAY_NORMAL]) == TYPE_PACKED_VECTOR3_ARRAY:
-	// 			var normarr: PackedVector3Array = arr[ArrayMesh.ARRAY_NORMAL]
-	// 			for i in range(vert_arr_len):
-	// 				normarr[i] = Vector3(-1, 1, -1) * normarr[i]
-	// 		if typeof(arr[ArrayMesh.ARRAY_TANGENT]) == TYPE_PACKED_FLOAT32_ARRAY:
-	// 			var tangarr: PackedFloat32Array = arr[ArrayMesh.ARRAY_TANGENT]
-	// 			for i in range(vert_arr_len):
-	// 				tangarr[i * 4] = -tangarr[i * 4]
-	// 				tangarr[i * 4 + 2] = -tangarr[i * 4 + 2]
-	// 		for bsidx in range(len(bsarr)):
-	// 			vertarr = bsarr[bsidx][ArrayMesh.ARRAY_VERTEX]
-	// 			for i in range(vert_arr_len):
-	// 				vertarr[i] = Vector3(-1, 1, -1) * vertarr[i]
-	// 			if typeof(bsarr[bsidx][ArrayMesh.ARRAY_NORMAL]) == TYPE_PACKED_VECTOR3_ARRAY:
-	// 				var normarr: PackedVector3Array = bsarr[bsidx][ArrayMesh.ARRAY_NORMAL]
-	// 				for i in range(vert_arr_len):
-	// 					normarr[i] = Vector3(-1, 1, -1) * normarr[i]
-	// 			if typeof(bsarr[bsidx][ArrayMesh.ARRAY_TANGENT]) == TYPE_PACKED_FLOAT32_ARRAY:
-	// 				var tangarr: PackedFloat32Array = bsarr[bsidx][ArrayMesh.ARRAY_TANGENT]
-	// 				for i in range(vert_arr_len):
-	// 					tangarr[i * 4] = -tangarr[i * 4]
-	// 					tangarr[i * 4 + 2] = -tangarr[i * 4 + 2]
-	// 			bsarr[bsidx].resize(ArrayMesh.ARRAY_MAX)
-
-	// 		surf_data_by_mesh.push_back({
-	// 			"prim": prim,
-	// 			"arr": arr,
-	// 			"bsarr": bsarr,
-	// 			"lods": lods,
-	// 			"fmt_compress_flags": fmt_compress_flags,
-	// 			"name": name,
-	// 			"mat": mat
-	// 		})
-	// 	mesh.clear()
-	// 	for blend_name in blendshapes:
-	// 		mesh.add_blend_shape(blend_name)
-	// 	for surf_idx in range(surf_count):
-	// 		var prim: int = surf_data_by_mesh[surf_idx].get("prim")
-	// 		var arr: Array = surf_data_by_mesh[surf_idx].get("arr")
-	// 		var bsarr: Array = surf_data_by_mesh[surf_idx].get("bsarr")
-	// 		var lods: Dictionary = surf_data_by_mesh[surf_idx].get("lods")
-	// 		var fmt_compress_flags: int = surf_data_by_mesh[surf_idx].get("fmt_compress_flags")
-	// 		var name: String = surf_data_by_mesh[surf_idx].get("name")
-	// 		var mat: Material = surf_data_by_mesh[surf_idx].get("mat")
-	// 		mesh.add_surface(prim, arr, bsarr, lods, mat, name, fmt_compress_flags)
-
+	void adjust_mesh_zforward(Ref<ImporterMesh> mesh) {
+		// MESH and SKIN data divide, to compensate for object position multiplying.
+		int surf_count = mesh->get_surface_count();
+		Array surf_data_by_mesh;
+		Vector<String> blendshapes;
+		for (int32_t bsidx = 0; bsidx < mesh->get_blend_shape_count(); bsidx++) {
+			blendshapes.append(mesh->get_blend_shape_name(bsidx));
+		}
+		for (int32_t surf_idx = 0; surf_idx < surf_count; surf_idx++) {
+			int prim = mesh->get_surface_primitive_type(surf_idx);
+			int fmt_compress_flags = mesh->get_surface_format(surf_idx);
+			Array arr = mesh->get_surface_arrays(surf_idx);
+			String name = mesh->get_surface_name(surf_idx);
+			int32_t bscount = mesh->get_blend_shape_count();
+			Array bsarr;
+			for (int32_t bsidx = 0; bsidx < bscount; bsidx++) {
+				bsarr.append(mesh->get_surface_blend_shape_arrays(surf_idx, bsidx));
+			}
+			// TODO: RESTORE LODS.
+			Dictionary lods; // mesh.surface_get_lods(surf_idx) # get_lods(mesh, surf_idx);
+			Ref<Material> mat = mesh->get_surface_material(surf_idx);
+			Vector<Vector3> vertarr = arr[ArrayMesh::ARRAY_VERTEX];
+			int vert_arr_len = vertarr.size();
+			for (int32_t i = 0; i < vert_arr_len; i++) {
+				vertarr.write[i] = Vector3(-1, 1, -1) * vertarr[i];
+			}
+			if (Variant(arr[ArrayMesh::ARRAY_NORMAL]).get_type() == Variant::Type::PACKED_VECTOR3_ARRAY) {
+				Vector<Vector3> normarr = arr[ArrayMesh::ARRAY_NORMAL];
+				for (int32_t i = 0; i < vert_arr_len; i++) {
+					normarr.write[i] = Vector3(-1, 1, -1) * normarr[i];
+				}
+			}
+			if (Variant(arr[ArrayMesh::ARRAY_TANGENT]).get_type() == Variant::Type::PACKED_FLOAT32_ARRAY) {
+				Vector<float> tangarr = arr[ArrayMesh::ARRAY_TANGENT];
+				for (int32_t i = 0; i < vert_arr_len; i++) {
+					tangarr.write[i * 4] = -tangarr[i * 4];
+					tangarr.write[i * 4 + 2] = -tangarr[i * 4 + 2];
+				}
+			}
+			for (int32_t bsidx = 0; bsidx < bsarr.size(); bsidx++) {
+				Array blend_shape_mesh_array;
+				blend_shape_mesh_array.resize(ArrayMesh::ARRAY_MAX);
+				vertarr = blend_shape_mesh_array[ArrayMesh::ARRAY_VERTEX];
+				for (int32_t i = 0; i < vert_arr_len; i++) {
+					vertarr.write[i] = Vector3(-1, 1, -1) * vertarr[i];
+				}
+				if (Variant(blend_shape_mesh_array[ArrayMesh::ARRAY_NORMAL]).get_type() == Variant::Type::PACKED_VECTOR3_ARRAY) {
+					Vector<Vector3> normarr = blend_shape_mesh_array[ArrayMesh::ARRAY_NORMAL];
+					for (int32_t i = 0; i < vert_arr_len; i++) {
+						normarr.write[i] = Vector3(-1, 1, -1) * normarr[i];
+					}
+				}
+				if (Variant(blend_shape_mesh_array[ArrayMesh::ARRAY_TANGENT]).get_type() == Variant::Type::PACKED_FLOAT32_ARRAY) {
+					Vector<float> tangarr = blend_shape_mesh_array[ArrayMesh::ARRAY_TANGENT];
+					for (int32_t i = 0; i < vert_arr_len; i++) {
+						tangarr.write[i * 4] = -tangarr[i * 4];
+						tangarr.write[i * 4 + 2] = -tangarr[i * 4 + 2];
+					}
+				}
+				bsarr[bsidx] = blend_shape_mesh_array;
+			}
+			Dictionary surf_data;
+			surf_data["prim"] = prim;
+			surf_data["arr"] = arr;
+			surf_data["bsarr"] = bsarr;
+			surf_data["lods"] = lods;
+			surf_data["fmt_compress_flags"] = fmt_compress_flags;
+			surf_data["name"] = name;
+			surf_data["mat"] = mat;
+			surf_data_by_mesh.push_back(surf_data);
+		}
+		mesh->clear();
+		for (String blend_name : blendshapes) {
+			mesh->add_blend_shape(blend_name);
+		}
+		for (int32_t surf_idx = 0; surf_idx < surf_count; surf_idx++) {
+			int prim = surf_data_by_mesh[surf_idx].get("prim");
+			Array arr = surf_data_by_mesh[surf_idx].get("arr");
+			Array bsarr = surf_data_by_mesh[surf_idx].get("bsarr");
+			Dictionary lods = surf_data_by_mesh[surf_idx].get("lods");
+			int fmt_compress_flags = surf_data_by_mesh[surf_idx].get("fmt_compress_flags");
+			String name = surf_data_by_mesh[surf_idx].get("name");
+			Ref<Material> mat = surf_data_by_mesh[surf_idx].get("mat");
+			mesh->add_surface(Mesh::PrimitiveType(prim), arr, bsarr, lods, mat, name, fmt_compress_flags);
+		}
+	}
 	void skeleton_rename(Ref<GLTFState> gstate, Node *p_base_scene, Skeleton3D *p_skeleton, Ref<BoneMap> p_bone_map) {
 		ERR_FAIL_NULL(p_skeleton);
 		ERR_FAIL_NULL(p_bone_map);
@@ -1052,23 +1070,20 @@ public:
 		// 		rotate_scene_180_inner(child, mesh_set, skin_set)
 	}
 
-	// func xtmp(p_node: Node3D, mesh_set: Dictionary, skin_set: Dictionary):
-	// 	if p_node is ImporterMeshInstance3D:
-	// 		mesh_set[p_node.mesh] = true
-	// 		skin_set[p_node.skin] = true
-	// 	for child in p_node.get_children():
-	// 		xtmp(child, mesh_set, skin_set)
-
 	void rotate_scene_180(Node3D *p_scene) {
-		// var mesh_set: Dictionary = {}
-		// var skin_set: Dictionary = {}
-		// rotate_scene_180_inner(p_scene, mesh_set, skin_set)
-		// #xtmp(p_scene, mesh_set, skin_set)
-		// for mesh in mesh_set:
-		// 	adjust_mesh_zforward(mesh)
-		// for skin in skin_set:
-		// 	for b in range(skin.get_bind_count()):
-		// 		skin.set_bind_pose(b, ROTATE_180_TRANSFORM * skin.get_bind_pose(b))
+		Dictionary mesh_set;
+		Dictionary skin_set;
+		rotate_scene_180_inner(p_scene, mesh_set, skin_set);
+		for (int32_t mesh_i = 0; mesh_i < mesh_set.keys().size(); mesh_i++) {
+			Ref<ImporterMesh> mesh = mesh_set.keys()[mesh_i];
+			adjust_mesh_zforward(mesh);
+		}
+		for (int32_t skin_i = 0; skin_i < skin_set.keys().size(); skin_i++) {
+			Ref<Skin> skin = skin_set.keys()[skin_i];
+			for (int32_t bind_i = 0; bind_i < skin->get_bind_count(); bind_i++) {
+				skin->set_bind_pose(bind_i, ROTATE_180_TRANSFORM * skin->get_bind_pose(bind_i));
+			}
+		}
 	}
 
 	TypedArray<Basis> skeleton_rotate(Node *p_base_scene, Skeleton3D *src_skeleton, Ref<BoneMap> p_bone_map) {
@@ -1903,7 +1918,7 @@ public:
 			print_error("Failed to find required VRM keys in json");
 			return nullptr;
 		}
-		Node * original_root_node = gltf->generate_scene(gstate, 30);
+		Node *original_root_node = gltf->generate_scene(gstate, 30);
 		VRMTopLevel *root_node = memnew(VRMTopLevel);
 		original_root_node->replace_by(root_node, true);
 		bool is_vrm_0 = true;
@@ -1915,10 +1930,12 @@ public:
 		// lowerArmTwist, upperLegTwist, lowerLegTwist, feetSpacing,
 		// and hasTranslationDoF
 		Dictionary humanoid = vrm_extension["humanoid"];
-		Dictionary human_bones = humanoid["humanBones"];
-		for (int32_t human_bone_i = 0; human_bone_i < human_bones.keys().size(); human_bone_i++) {
-			Dictionary human_bone = human_bones[human_bones.keys()[human_bone_i]];
-			human_bone_to_idx[human_bone["bone"]] = int(human_bone["node"]);
+		Array human_bones = humanoid["humanBones"];
+		for (int32_t human_bone_i = 0; human_bone_i < human_bones.size(); human_bone_i++) {
+			Dictionary human_bone = human_bones[human_bone_i];
+			String bone_name = human_bone["bone"];
+			int32_t node_id = human_bone["node"];
+			human_bone_to_idx[bone_name] = node_id;
 			// properties:
 			// Ignoring: useDefaultValues
 			// Ignoring: min
@@ -1937,12 +1954,17 @@ public:
 		vrm_constants_class vrmconst_inst = vrm_constants_class(is_vrm_0); //vrm 0.0
 		for (int32_t human_bone_name_i = 0; human_bone_name_i < human_bone_to_idx.keys().size(); human_bone_name_i++) {
 			String human_bone_name = human_bone_to_idx.keys()[human_bone_name_i];
-			Ref<Resource> human_bone = human_bone_to_idx[human_bone_name];
-			if (human_bone.is_null()) {
+			int human_bone_idx = human_bone_to_idx[human_bone_name];
+			Ref<GLTFNode> gltf_node = gstate->get_nodes()[human_bone_idx];
+			if (gltf_node.is_null()) {
 				continue;
 			}
-			String profile_name = vrmconst_inst.vrm_to_human_bone[human_bone->get_name()];
-			humanBones->set_skeleton_bone_name(profile_name, human_bone_name);
+			String gltf_node_name = gltf_node->get_name();
+			if (!vrmconst_inst.vrm_to_human_bone.has(human_bone_name)) {
+				continue;
+			}
+			String profile_name = vrmconst_inst.vrm_to_human_bone[human_bone_name];
+			humanBones->set_skeleton_bone_name(profile_name, gltf_node_name);
 		}
 		if (is_vrm_0) {
 			// VRM 0.0 has models facing backwards due to a spec error (flipped z instead of x).
