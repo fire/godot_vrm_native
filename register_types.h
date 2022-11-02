@@ -817,46 +817,64 @@ protected:
 				}
 			} break;
 			case NOTIFICATION_PROCESS: {
-				// # Called every frame. 'delta' is the elapsed time since the previous frame.
-				// func _process(delta) -> void:
-				// 	if not update_secondary_fixed:
-				// 		if not Engine.is_editor_hint() or check_for_editor_update():
-				// 			# force update skeleton
-				// 			for spring_bone in spring_bones_internal:
-				// 				if spring_bone.skel != null:
-				// 					spring_bone.skel.get_bone_global_pose_no_override(0)
-				// 			for collider_group in collider_groups_internal:
-				// 				collider_group._process()
-				// 			for spring_bone in spring_bones_internal:
-				// 				spring_bone._process(delta)
-				// 			if secondary_gizmo != null:
-				// 				if Engine.is_editor_hint():
-				// 					secondary_gizmo.draw_in_editor(true)
-				// 				else:
-				// 					secondary_gizmo.draw_in_game()
-				// 		elif Engine.is_editor_hint():
-				// 			if secondary_gizmo != null:
-				// 				secondary_gizmo.draw_in_editor()
+				if (!update_secondary_fixed) {
+					return;
+				}
+				if (!Engine::get_singleton()->is_editor_hint() || check_for_editor_update()) {
+					// Force update the skeleton.
+					for (Ref<VRMSpringBone> spring_bone : spring_bones_internal) {
+						if (spring_bone->skel) {
+							spring_bone->skel->get_bone_global_pose_no_override(0);
+						}
+					}
+					for (Ref<VRMColliderGroup> collider_group : collider_groups_internal) {
+						collider_group->_process();
+					}
+					for (Ref<VRMSpringBone> spring_bone : spring_bones_internal) {
+						spring_bone->_process(get_process_delta_time());
+					}
+					if (secondary_gizmo) {
+						if (Engine::get_singleton()->is_editor_hint()) {
+							secondary_gizmo->draw_in_editor(true);
+						} else {
+							secondary_gizmo->draw_in_game();
+						}
+					}
+				} else if (Engine::get_singleton()->is_editor_hint()) {
+					if (secondary_gizmo) {
+						secondary_gizmo->draw_in_editor();
+					}
+				}
 			} break;
 			case NOTIFICATION_PHYSICS_PROCESS: {
-				// 	if update_secondary_fixed:
-				// 		if not Engine.is_editor_hint() or check_for_editor_update():
-				// 			# force update skeleton
-				// 			for spring_bone in spring_bones_internal:
-				// 				if spring_bone.skel != null:
-				// 					spring_bone.skel.get_bone_global_pose_no_override(0)
-				// 			for collider_group in collider_groups_internal:
-				// 				collider_group._process()
-				// 			for spring_bone in spring_bones_internal:
-				// 				spring_bone._process(delta)
-				// 			if secondary_gizmo != null:
-				// 				if Engine.is_editor_hint():
-				// 					secondary_gizmo.draw_in_editor(true)
-				// 				else:
-				// 					secondary_gizmo.draw_in_game()
-				// 		elif Engine.is_editor_hint():
-				// 			if secondary_gizmo != null:
-				// 				secondary_gizmo.draw_in_editor()
+				if (!update_secondary_fixed) {
+					return;
+				}
+				if (!Engine ::get_singleton()->is_editor_hint() || check_for_editor_update()) {
+					// Force the skeleton update.
+					for (Ref<VRMSpringBone> spring_bone : spring_bones_internal) {
+						if (spring_bone->skel) {
+							spring_bone->skel->get_bone_global_pose_no_override(0);
+						}
+					}
+					for (Ref<VRMColliderGroup> collider_group : collider_groups_internal) {
+						collider_group->_process();
+					}
+					for (Ref<VRMSpringBone> spring_bone : spring_bones_internal) {
+						spring_bone->_process(get_physics_process_delta_time());
+					}
+					if (secondary_gizmo) {
+						if (Engine::get_singleton()->is_editor_hint()) {
+							secondary_gizmo->draw_in_editor(true);
+						} else {
+							secondary_gizmo->draw_in_game();
+						}
+					} else if (Engine::get_singleton()->is_editor_hint()) {
+						if (secondary_gizmo) {
+							secondary_gizmo->draw_in_editor();
+						}
+					}
+				}
 			} break;
 		}
 	}
