@@ -1103,7 +1103,9 @@ public:
 		ImporterMeshInstance3D *importer_mesh_instance_3d = cast_to<ImporterMeshInstance3D>(p_node);
 		if (importer_mesh_instance_3d) {
 			mesh_set[importer_mesh_instance_3d->get_mesh()] = true;
-			skin_set[importer_mesh_instance_3d->get_skin()] = true;
+			if (importer_mesh_instance_3d->get_skin().is_valid()) {
+				skin_set[importer_mesh_instance_3d->get_skin()] = true;
+			}
 		}
 		for (int32_t child_i = 0; child_i < p_node->get_child_count(); child_i++) {
 			Node3D *child = cast_to<Node3D>(p_node->get_child(child_i));
@@ -1117,13 +1119,11 @@ public:
 		rotate_scene_180_inner(p_scene, mesh_set, skin_set);
 		for (int32_t mesh_i = 0; mesh_i < mesh_set.keys().size(); mesh_i++) {
 			Ref<ImporterMesh> mesh = mesh_set.keys()[mesh_i];
+			Array values = mesh_set.values();
 			adjust_mesh_zforward(mesh);
 		}
 		for (int32_t skin_i = 0; skin_i < skin_set.keys().size(); skin_i++) {
 			Ref<Skin> skin = skin_set.keys()[skin_i];
-			if (skin.is_null()) {
-				continue;
-			}
 			for (int32_t bind_i = 0; bind_i < skin->get_bind_count(); bind_i++) {
 				skin->set_bind_pose(bind_i, ROTATE_180_TRANSFORM * skin->get_bind_pose(bind_i));
 			}
@@ -1196,11 +1196,29 @@ public:
 	}
 
 	void apply_rotation(Node *p_base_scene, Skeleton3D *src_skeleton) {
+		{
+			Array nodes = p_base_scene->find_children("*", "BoneAttachment3D");
+			while (!nodes.is_empty()) {
+				Variant variant_node = nodes.pop_back();
+				BoneAttachment3D *attachment_3d = cast_to<BoneAttachment3D>(variant_node);
+				if (!attachment_3d) {
+					continue;
+				}
+				Transform3D transform = ROTATE_180_TRANSFORM * attachment_3d->get_global_transform();
+				attachment_3d->set_global_transform(transform);
+			}
+		}
+
 		// Fix skin.
 		Array nodes = p_base_scene->find_children("*", "ImporterMeshInstance3D");
 		while (!nodes.is_empty()) {
 			Variant variant_node = nodes.pop_back();
 			Node *this_node = cast_to<Node>(variant_node);
+			BoneAttachment3D *attachment_3d = cast_to<BoneAttachment3D>(this_node);
+			if (attachment_3d) {
+				attachment_3d->scale(Vector3(-1.0f, 0.0f, -1.0f));
+				continue;
+			}
 			ImporterMeshInstance3D *mi = cast_to<ImporterMeshInstance3D>(this_node);
 			if (!mi) {
 				continue;
