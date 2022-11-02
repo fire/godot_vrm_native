@@ -1167,32 +1167,39 @@ public:
 	}
 
 	void apply_rotation(Node *p_base_scene, Skeleton3D *src_skeleton) {
-		// 	# Fix skin.
-		// 	var nodes: Array[Node] = p_base_scene.find_children("*", "ImporterMeshInstance3D")
-		// 	while not nodes.is_empty():
-		// 		var this_node = nodes.pop_back()
-		// 		if this_node is ImporterMeshInstance3D:
-		// 			var mi = this_node
-		// 			var skin: Skin = mi.skin
-		// 			var node = mi.get_node_or_null(mi.skeleton_path)
-		// 			if skin and node and node is Skeleton3D and node == src_skeleton:
-		// 				var skellen = skin.get_bind_count()
-		// 				for i in range(skellen):
-		// 					var bn: StringName = skin.get_bind_name(i);
-		// 					var bone_idx: int = src_skeleton.find_bone(bn);
-		// 					if bone_idx >= 0:
-		// 						# silhouette_diff[i] *
-		// 						# Normally would need to take bind-pose into account.
-		// 						# However, in this case, it works because VRM files must be baked before export.
-		// 						var new_rest: Transform3D = src_skeleton.get_bone_global_rest(bone_idx)
-		// 						skin.set_bind_pose(i, new_rest.inverse())
-
-		// 	# Init skeleton pose to new rest.
-		// 	for i in range(src_skeleton.get_bone_count()):
-		// 		var fixed_rest: Transform3D = src_skeleton.get_bone_rest(i)
-		// 		src_skeleton.set_bone_pose_position(i, fixed_rest.origin)
-		// 		src_skeleton.set_bone_pose_rotation(i, fixed_rest.basis.get_rotation_quaternion())
-		// 		src_skeleton.set_bone_pose_scale(i, fixed_rest.basis.get_scale())
+		// Fix skin.
+		Array nodes = p_base_scene->find_children("*", "ImporterMeshInstance3D");
+		while (!nodes.is_empty()) {
+			Variant variant_node = nodes.pop_back();
+			Node *this_node = cast_to<Node>(variant_node);
+			ImporterMeshInstance3D *mi = cast_to<ImporterMeshInstance3D>(this_node);
+			if (!mi) {
+				continue;
+			}
+			Ref<Skin> skin = mi->get_skin();
+			Node *node = mi->get_node_or_null(mi->get_skeleton_path());
+			if (skin.is_valid() && node && cast_to<Skeleton3D>(node) && node == src_skeleton) {
+				int32_t skellen = skin->get_bind_count();
+				for (int32_t i = 0; i < skellen; i++) {
+					StringName bn = skin->get_bind_name(i);
+					int bone_idx = src_skeleton->find_bone(bn);
+					if (bone_idx >= 0) {
+						// silhouette_diff[i] *
+						// Normally would need to take bind-pose into account.
+						// However, in this case, it works because VRM files must be baked before export.
+						Transform3D new_rest = src_skeleton->get_bone_global_rest(bone_idx);
+						skin->set_bind_pose(i, new_rest.inverse());
+					}
+				}
+			}
+		}
+		// Init skeleton pose to new rest.
+		for (int32_t i = 0; i < src_skeleton->get_bone_count(); i++) {
+			Transform3D fixed_rest = src_skeleton->get_bone_rest(i);
+			src_skeleton->set_bone_pose_position(i, fixed_rest.origin);
+			src_skeleton->set_bone_pose_rotation(i, fixed_rest.basis.get_rotation_quaternion());
+			src_skeleton->set_bone_pose_scale(i, fixed_rest.basis.get_scale());
+		}
 	}
 
 	// enum DebugMode {
