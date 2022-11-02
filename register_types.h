@@ -102,7 +102,6 @@ public:
 	}
 };
 
-
 class VRMTopLevel : public Node3D {
 	NodePath vrm_skeleton;
 	NodePath vrm_animplayer;
@@ -308,6 +307,110 @@ public:
 	}
 };
 
+// Individual spring bone entries.
+class VRMSpringBoneLogic : public RefCounted {
+public:
+	bool force_update = true;
+	int bone_idx = -1;
+
+	float radius = 0;
+	float length = 0;
+
+	Vector3 bone_axis;
+	Vector3 current_tail;
+	Vector3 prev_tail;
+
+	Transform3D initial_transform;
+
+	Transform3D get_transform(Skeleton3D *skel) {
+		return skel->get_global_transform() * skel->get_bone_global_pose_no_override(bone_idx);
+	}
+	Quaternion get_rotation(Skeleton3D *skel) {
+		return get_transform(skel).basis.get_rotation_quaternion();
+	}
+
+	Transform3D get_local_transform(Skeleton3D *skel) {
+		return skel->get_bone_global_pose_no_override(bone_idx);
+	}
+	Quaternion get_local_rotation(Skeleton3D *skel) {
+		return get_local_transform(skel).basis.get_rotation_quaternion();
+	}
+
+	void reset(Skeleton3D *skel) {
+		skel->set_bone_global_pose_override(bone_idx, initial_transform, 1.0, true);
+	}
+
+	void setup(Skeleton3D *skel, int idx, Variant center, Vector3 local_child_position, Transform3D default_pose) {
+		initial_transform = default_pose;
+		bone_idx = idx;
+		Vector3 world_child_position = VRMTopLevel::transform_point(get_transform(skel), local_child_position);
+		if (Variant(center).get_type() != Variant::Type::NIL) {
+			current_tail = VRMTopLevel::inv_transform_point(center, world_child_position);
+		} else {
+			current_tail = world_child_position;
+		}
+		prev_tail = current_tail;
+		bone_axis = local_child_position.normalized();
+		length = local_child_position.length();
+	}
+
+	void update(Skeleton3D *skel, Variant center, float stiffness_force, float drag_force, Vector3 external, Vector<Ref<SphereCollider>> colliders) {
+		Vector3 tmp_current_tail;
+		Vector3 tmp_prev_tail;
+		if (Variant(center).get_type() != Variant::Type::NIL) {
+			tmp_current_tail = VRMTopLevel::transform_point(center, current_tail);
+			tmp_prev_tail = VRMTopLevel::transform_point(center, prev_tail);
+		} else {
+			tmp_current_tail = current_tail;
+			tmp_prev_tail = prev_tail;
+		}
+
+		// Integration of velocity verlet
+		Vector3 next_tail = tmp_current_tail + (tmp_current_tail - tmp_prev_tail) * (1.0 - drag_force) + (get_rotation(skel).xform(bone_axis)) * stiffness_force + external;
+
+		// Limiting bone length
+		Vector3 origin = get_transform(skel).origin;
+		next_tail = origin + (next_tail - origin).normalized() * length;
+
+		// Collision movement
+		next_tail = collision(skel, colliders, next_tail);
+
+		// Recording current tails for next process
+		if (Variant(center).get_type() != Variant::Type::NIL) {
+			prev_tail = VRMTopLevel::inv_transform_point(center, current_tail);
+			current_tail = VRMTopLevel::inv_transform_point(center, next_tail);
+		} else {
+			prev_tail = current_tail;
+			current_tail = next_tail;
+		}
+
+		// Apply rotation
+		Quaternion ft = VRMTopLevel::from_to_rotation((get_rotation(skel).xform(bone_axis)), next_tail - get_transform(skel).origin);
+		ft = skel->get_global_transform().basis.get_rotation_quaternion().inverse() * ft;
+		Quaternion qt = ft * get_rotation(skel);
+		Transform3D local_tr = get_local_transform(skel);
+		local_tr.basis = Basis(qt.normalized());
+		skel->set_bone_global_pose_override(bone_idx, local_tr, 1.0, true);
+	}
+
+	Vector3 collision(Skeleton3D *skel, Vector<Ref<SphereCollider>> colliders, Vector3 next_tail) {
+		Vector3 out = next_tail;
+		for (Ref<SphereCollider> collider : colliders) {
+			real_t r = radius + collider->get_radius();
+			Vector3 diff = out - collider->get_position();
+			if ((diff.x * diff.x + diff.y * diff.y + diff.z * diff.z) <= r * r) {
+				// Hit, move to orientation of normal
+				Vector3 normal = (out - collider->get_position()).normalized();
+				Vector3 pos_from_collider = collider->get_position() + normal * (radius + collider->get_radius());
+				// Limiting bone length
+				Vector3 origin = get_transform(skel).origin;
+				out = origin + (pos_from_collider - origin).normalized() * length;
+			}
+		}
+		return out;
+	}
+};
+
 class VRMSpringBone : public Resource {
 public:
 	// # Annotation comment
@@ -357,51 +460,61 @@ public:
 	Array collider_groups; // DO NOT INITIALIZE HERE
 
 	// # Props
-	Vector<Ref<VRMSpringBone>> verlets;
+	Vector<Ref<VRMSpringBoneLogic>> verlets;
 	Vector<Ref<SphereCollider>> colliders;
-	Vector<Vector3> center;
+	Variant center;
 	Skeleton3D *skel = nullptr;
 
 	void setup(bool force = false) {
-		// if (!(!root_bones.is_empty() && skel)) {
-		// 	return;
-		// }
-		// if (!(force || verlets.is_empty())) {
-		// 	return;
-		// }
-		// if (!verlets.is_empty()) {
-		// 	for (Ref<VRMSpringBone> verlet : verlets) {
-		// 		if (verlet.is_null()) {
-		// 			continue;
-		// 		}
-		// 		verlet->reset(skel);
-		// 	}
-		// }
-		// verlets.clear();
-		// for go in root_bones {
-		// 	if (typeof(go) != TYPE_NIL && ! go.is_empty()) {
-		// 		setup_recursive(skel.find_bone(go), center);
-		// 	}
-		// }
+		if (!(!root_bones.is_empty() && skel)) {
+			return;
+		}
+		if (!(force || verlets.is_empty())) {
+			return;
+		}
+		if (!verlets.is_empty()) {
+			for (Ref<VRMSpringBoneLogic> verlet : verlets) {
+				if (verlet.is_null()) {
+					continue;
+				}
+				verlet->reset(skel);
+			}
+		}
+		verlets.clear();
+		for (String go : root_bones) {
+			if (go.is_empty()) {
+				setup_recursive(skel->find_bone(go), center);
+			}
+		}
 	}
 
-	// func setup_recursive(id: int, center_tr) -> void:
-	// 	if skel.get_bone_children(id).is_empty():
-	// 		var delta: Vector3 = skel.get_bone_rest(id).origin
-	// 		var child_position: Vector3 = delta.normalized() * 0.07
-	// 		verlets.append(VRMSpringBoneLogic.new(skel, id, center_tr, child_position, skel.get_bone_global_pose_no_override(id)))
-	// 	else:
-	// 		var first_child: int = skel.get_bone_children(id)[0]
-	// 		var local_position: Vector3 = skel.get_bone_rest(first_child).origin
-	// 		var sca: Vector3 = skel.get_bone_rest(first_child).basis.get_scale()
-	// 		var pos: Vector3 = Vector3(local_position.x * sca.x, local_position.y * sca.y, local_position.z * sca.z)
-	// 		verlets.append(VRMSpringBoneLogic.new(skel, id, center_tr, pos, skel.get_bone_global_pose_no_override(id)))
-	// 	for child in skel.get_bone_children(id):
-	// 		setup_recursive(child, center_tr)
+	void setup_recursive(int id, Variant center_tr) {
+		if (skel->get_bone_children(id).is_empty()) {
+			Vector3 delta = skel->get_bone_rest(id).origin;
+			Vector3 child_position = delta.normalized() * 0.07;
+			Ref<VRMSpringBoneLogic> spring_bone_logic;
+			spring_bone_logic.instantiate();
+			spring_bone_logic->setup(skel, id, center_tr, child_position, skel->get_bone_global_pose_no_override(id));
+			verlets.append(spring_bone_logic);
+		} else {
+			int first_child = skel->get_bone_children(id)[0];
+			Vector3 local_position = skel->get_bone_rest(first_child).origin;
+			// TODO: Use full names for variables.
+			Vector3 sca = skel->get_bone_rest(first_child).basis.get_scale();
+			Vector3 pos = Vector3(local_position.x * sca.x, local_position.y * sca.y, local_position.z * sca.z);
+			Ref<VRMSpringBoneLogic> spring_bone_logic;
+			spring_bone_logic.instantiate();
+			spring_bone_logic->setup(skel, id, center_tr, pos, skel->get_bone_global_pose_no_override(id));
+			verlets.append(spring_bone_logic);
+		}
+		for (int child : skel->get_bone_children(id)) {
+			setup_recursive(child, center_tr);
+		}
+	}
 
 	// Called when the node enters the scene tree for the first time.
 	// TODO: Avoid shadowing godot methods.
-	void _ready(Skeleton3D *ready_skel, Vector<Ref<SphereCollider>> colliders_ref ) {
+	void _ready(Skeleton3D *ready_skel, Vector<Ref<SphereCollider>> colliders_ref) {
 		if (ready_skel) {
 			skel = ready_skel;
 		}
@@ -409,109 +522,22 @@ public:
 		colliders = colliders_ref;
 	}
 
-	// # Called every frame. 'delta' is the elapsed time since the previous frame.
-	// func _process(delta) -> void:
-	// 	if verlets.is_empty():
-	// 		if root_bones.is_empty():
-	// 			return
-	// 		setup()
-
-	// 	var stiffness = stiffness_force * delta
-	// 	var external = gravity_dir * (gravity_power * delta)
-
-	// 	for verlet in verlets:
-	// 		verlet.radius = hit_radius
-	// 		verlet.update(skel, center, stiffness, drag_force, external, colliders)
-
-	// # Individual spring bone entries.
-	// class VRMSpringBoneLogic:
-	// 	var force_update: bool = true
-	// 	var bone_idx: int = -1
-
-	// 	var radius: float = 0
-	// 	var length: float = 0
-
-	// 	var bone_axis: Vector3
-	// 	var current_tail: Vector3
-	// 	var prev_tail: Vector3
-
-	// 	var initial_transform: Transform3D
-
-	// 	func get_transform(skel: Skeleton3D) -> Transform3D:
-	// 		return skel.get_global_transform() * skel.get_bone_global_pose_no_override(bone_idx)
-	// 	func get_rotation(skel: Skeleton3D) -> Quaternion:
-	// 		return get_transform(skel).basis.get_rotation_quaternion()
-
-	// 	func get_local_transform(skel: Skeleton3D) -> Transform3D:
-	// 		return skel.get_bone_global_pose_no_override(bone_idx)
-	// 	func get_local_rotation(skel: Skeleton3D) -> Quaternion:
-	// 		return get_local_transform(skel).basis.get_rotation_quaternion()
-
-	// 	func reset(skel: Skeleton3D) -> void:
-	// 		skel.set_bone_global_pose_override(bone_idx, initial_transform, 1.0, true)
-
-	// 	func _init(skel: Skeleton3D, idx: int, center, local_child_position: Vector3, default_pose: Transform3D) -> void:
-	// 		initial_transform = default_pose
-	// 		bone_idx = idx
-	// 		var world_child_position: Vector3 = VRMTopLevel.VRMUtil.transform_point(get_transform(skel), local_child_position)
-	// 		if typeof(center) != TYPE_NIL:
-	// 			current_tail = VRMTopLevel.VRMUtil.inv_transform_point(center, world_child_position)
-	// 		else:
-	// 			current_tail = world_child_position
-	// 		prev_tail = current_tail
-	// 		bone_axis = local_child_position.normalized()
-	// 		length = local_child_position.length()
-
-	// 	func update(skel: Skeleton3D, center, stiffness_force: float, drag_force: float, external: Vector3, colliders: Array) -> void:
-	// 		var tmp_current_tail: Vector3
-	// 		var tmp_prev_tail: Vector3
-	// 		if typeof(center) != TYPE_NIL:
-	// 			tmp_current_tail = VRMTopLevel.VRMUtil.transform_point(center, current_tail)
-	// 			tmp_prev_tail = VRMTopLevel.VRMUtil.transform_point(center, prev_tail)
-	// 		else:
-	// 			tmp_current_tail = current_tail
-	// 			tmp_prev_tail = prev_tail
-
-	// 		# Integration of velocity verlet
-	// 		var next_tail: Vector3 = tmp_current_tail + (tmp_current_tail - tmp_prev_tail) * (1.0 - drag_force) + (get_rotation(skel) * (bone_axis)) * stiffness_force + external
-
-	// 		# Limiting bone length
-	// 		var origin: Vector3 = get_transform(skel).origin
-	// 		next_tail = origin + (next_tail - origin).normalized() * length
-
-	// 		# Collision movement
-	// 		next_tail = collision(skel, colliders, next_tail)
-
-	// 		# Recording current tails for next process
-	// 		if typeof(center) != TYPE_NIL:
-	// 			prev_tail = VRMTopLevel.VRMUtil.inv_transform_point(center, current_tail)
-	// 			current_tail = VRMTopLevel.VRMUtil.inv_transform_point(center, next_tail)
-	// 		else:
-	// 			prev_tail = current_tail
-	// 			current_tail = next_tail
-
-	// 		# Apply rotation
-	// 	var ft = VRMTopLevel.VRMUtil.from_to_rotation((get_rotation(skel) * (bone_axis)), next_tail - get_transform(skel).origin)
-	// 	if typeof(ft) != TYPE_NIL:
-	// 		ft = skel.global_transform.basis.get_rotation_quaternion().inverse() * ft
-	// 		var qt: Quaternion = ft * get_rotation(skel)
-	// 		var local_tr: Transform3D = get_local_transform(skel)
-	// 		local_tr.basis = Basis(qt.normalized())
-	// 		skel.set_bone_global_pose_override(bone_idx, local_tr, 1.0, true)
-
-	// func collision(skel: Skeleton3D, colliders: Array, _next_tail: Vector3) -> Vector3:
-	// 	var out: Vector3 = _next_tail
-	// 	for collider in colliders:
-	// 		var r = radius + collider.get_radius()
-	// 		var diff: Vector3 = out - collider.get_position()
-	// 		if (diff.x * diff.x + diff.y * diff.y + diff.z * diff.z) <= r * r:
-	// 			# Hit, move to orientation of normal
-	// 			var normal: Vector3 = (out - collider.get_position()).normalized()
-	// 			var pos_from_collider = collider.get_position() + normal * (radius + collider.get_radius())
-	// 			# Limiting bone length
-	// 			var origin: Vector3 = get_transform(skel).origin
-	// 			out = origin + (pos_from_collider - origin).normalized() * length
-	// 	return out
+	// Called every frame. 'delta' is the elapsed time since the previous frame.
+	// TODO: Don't shadow godot methods.
+	void _process(double delta) {
+		if (verlets.is_empty()) {
+			if (root_bones.is_empty()) {
+				return;
+			}
+			setup();
+		}
+		float stiffness = stiffness_force * delta;
+		Vector3 external = gravity_dir * (gravity_power * delta);
+		for (Ref<VRMSpringBoneLogic> verlet : verlets) {
+			verlet->radius = hit_radius;
+			verlet->update(skel, center, stiffness, drag_force, external, colliders);
+		}
+	}
 };
 
 class SecondaryGizmo : public MeshInstance3D {
@@ -767,8 +793,8 @@ protected:
 				}
 				collider_groups_internal.clear();
 				spring_bones_internal.clear();
-				for (Ref<VRMColliderGroup>collider_group : collider_groups) {
-					Ref<VRMColliderGroup>new_collider_group = collider_group->duplicate(true);
+				for (Ref<VRMColliderGroup> collider_group : collider_groups) {
+					Ref<VRMColliderGroup> new_collider_group = collider_group->duplicate(true);
 					Skeleton3D *parent = cast_to<Skeleton3D>(get_node_or_null(new_collider_group->skeleton_or_node));
 					if (parent) {
 						new_collider_group->_ready(parent, parent);
