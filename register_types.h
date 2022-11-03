@@ -1249,48 +1249,51 @@ public:
 		}
 	}
 
-	// enum DebugMode {
-	// 	None = 0,
-	// 	Normal = 1,
-	// 	LitShadeRate = 2,
-	// }
+	enum DebugMode {
+		None = 0,
+		Normal = 1,
+		LitShadeRate = 2,
+	};
 
-	// enum OutlineColorMode {
-	// 	FixedColor = 0,
-	// 	MixedLight3Ding = 1,
-	// }
+	enum OutlineColorMode {
+		FixedColor = 0,
+		MixedLight3Ding = 1,
+	};
 
-	// enum OutlineWidthMode {
-	// 	None = 0,
-	// 	WorldCoordinates = 1,
-	// 	ScreenCoordinates = 2,
-	// }
+	enum OutlineWidthMode {
+		// None = 0,
+		WorldCoordinates = 1,
+		ScreenCoordinates = 2,
+	};
 
-	// enum RenderMode {
-	// 	Opaque = 0,
-	// 	Cutout = 1,
-	// 	Transparent = 2,
-	// 	TransparentWithZWrite = 3,
-	// }
+	enum RenderMode {
+		Opaque = 0,
+		Cutout = 1,
+		Transparent = 2,
+		TransparentWithZWrite = 3,
+	};
 
-	// enum CullMode {
-	// 	Off = 0,
-	// 	Front = 1,
-	// 	Back = 2,
-	// }
+	enum CullMode {
+		Off = 0,
+		Front = 1,
+		Back = 2,
+	};
 
-	// enum FirstPersonFlag {
-	// 	Auto, # Create headlessModel
-	// 	Both, # Default layer
-	// 	ThirdPersonOnly,
-	// 	FirstPersonOnly,
-	// }
-	// const FirstPersonParser: Dictionary = {
-	// 	"Auto": FirstPersonFlag.Auto,
-	// 	"Both": FirstPersonFlag.Both,
-	// 	"FirstPersonOnly": FirstPersonFlag.FirstPersonOnly,
-	// 	"ThirdPersonOnly": FirstPersonFlag.ThirdPersonOnly,
-	// }
+	enum FirstPersonFlag {
+		Auto, // Create headlessModel
+		Both, // Default layer
+		ThirdPersonOnly,
+		FirstPersonOnly,
+	};
+
+	Dictionary FirstPersonParser;
+
+	VRMEditorSceneFormatImporter() {
+		FirstPersonParser["Auto"] = FirstPersonFlag::Auto;
+		FirstPersonParser["Both"] =  FirstPersonFlag::Both;
+		FirstPersonParser["FirstPersonOnly"] = FirstPersonFlag::FirstPersonOnly;
+		FirstPersonParser["ThirdPersonOnly"] = FirstPersonFlag::ThirdPersonOnly;
+	}
 
 	// func _process_khr_material(orig_mat: StandardMaterial3D, gltf_mat_props: Dictionary) -> Material:
 	// 	# VRM spec requires support for the KHR_materials_unlit extension.
