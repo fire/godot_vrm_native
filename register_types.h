@@ -1687,229 +1687,232 @@ public:
 	}
 
 	AnimationPlayer *_create_animation_player(AnimationPlayer *animplayer, Dictionary vrm_extension, Ref<GLTFState> gstate, Dictionary human_bone_to_idx, TypedArray<Basis> pose_diffs) {
+		ERR_FAIL_NULL_V(animplayer, nullptr);
+		ERR_FAIL_NULL_V(gstate, nullptr);
+		// 	 Remove all glTF animation players for safety.
+		// 	 VRM does not support animation import in this way.
+		for (int32_t count_i = 0; count_i < gstate->get_animation_players_count(0); count_i++) {
+			AnimationPlayer *node = gstate->get_animation_player(count_i);
+			node->get_parent()->remove_child(node);
+		}
+
+		Ref<AnimationLibrary> animation_library;
+		animation_library.instantiate();
+
+		TypedArray<GLTFMesh> meshes = gstate->get_meshes();
+		// var nodes = gstate->get_nodes();
+		// var blend_shape_groups = vrm_extension["blendShapeMaster"]["blendShapeGroups"];
+		// // FIXME: Do we need to handle multiple references to the same mesh???
+		// var mesh_idx_to_meshinstance : Dictionary = {};
+		// var material_name_to_mesh_and_surface_idx: Dictionary = {};
+		// for i in range(meshes.size()):
+		// 	var gltfmesh : GLTFMesh = meshes[i];
+		// 	for j in range(gltfmesh.mesh.get_surface_count()):
+		// 		material_name_to_mesh_and_surface_idx[gltfmesh.mesh.get_surface_material(j).resource_name] = [i, j];
+
+		// 	for i in range(nodes.size()):
+		// 		var gltfnode: GLTFNode = nodes[i]
+		// 		var mesh_idx: int = gltfnode.mesh
+		// 		#print("node idx " + str(i) + " node name " + gltfnode.resource_name + " mesh idx " + str(mesh_idx))
+		// 		if (mesh_idx != -1):
+		// 			var scenenode: ImporterMeshInstance3D = gstate.get_scene_node(i)
+		// 			mesh_idx_to_meshinstance[mesh_idx] = scenenode
+		// 			#print("insert " + str(mesh_idx) + " node name " + scenenode.name)
+
+		// 	for shape in blend_shape_groups:
+		// 		#print("Blend shape group: " + shape["name"])
+		// 		var anim = Animation.new()
+
+		// 		for matbind in shape["materialValues"]:
+		// 			var mesh_and_surface_idx = material_name_to_mesh_and_surface_idx[matbind["materialName"]]
+		// 			var node: ImporterMeshInstance3D = mesh_idx_to_meshinstance[mesh_and_surface_idx[0]]
+		// 			var surface_idx = mesh_and_surface_idx[1]
+
+		// 			var mat: Material = node.get_surface_material(surface_idx)
+		// 			var paramprop = "shader_uniform/" + matbind["parameterName"]
+		// 			var origvalue = null
+		// 			var tv = matbind["targetValue"]
+		// 			var newvalue = tv[0]
+
+		// 			if (mat is ShaderMaterial):
+		// 				var smat: ShaderMaterial = mat
+		// 				var param = smat.get_shader_uniform(matbind["parameterName"])
+		// 				if param is Color:
+		// 					origvalue = param
+		// 					newvalue = Color(tv[0], tv[1], tv[2], tv[3])
+		// 				elif matbind["parameterName"] == "_MainTex" or matbind["parameterName"] == "_MainTex_ST":
+		// 					origvalue = param
+		// 					newvalue = Plane(tv[2], tv[3], tv[0], tv[1]) if matbind["parameterName"] == "_MainTex" else Plane(tv[0], tv[1], tv[2], tv[3])
+		// 				elif param is float:
+		// 					origvalue = param
+		// 					newvalue = tv[0]
+		// 				else:
+		// 					printerr("Unknown type for parameter " + matbind["parameterName"] + " surface " + node.name + "/" + str(surface_idx))
+
+		// 			if origvalue != null:
+		// 				var animtrack: int = anim.add_track(Animation.TYPE_VALUE)
+		// 				anim.track_set_path(animtrack, str(animplayer.get_parent().get_path_to(node)) + ":mesh:surface_" + str(surface_idx) + "/material:" + paramprop)
+		// 				anim.track_set_interpolation_type(animtrack, Animation.INTERPOLATION_NEAREST if bool(shape["isBinary"]) else Animation.INTERPOLATION_LINEAR)
+		// 				anim.track_insert_key(animtrack, 0.0, origvalue)
+		// 				anim.track_insert_key(animtrack, 0.0, newvalue)
+		// 		for bind in shape["binds"]:
+		// 			# FIXME: Is this a mesh_idx or a node_idx???
+		// 			var node: ImporterMeshInstance3D = mesh_idx_to_meshinstance[int(bind["mesh"])]
+		// 			var nodeMesh: ImporterMesh = node.mesh;
+
+		// 			if (bind["index"] < 0 || bind["index"] >= nodeMesh.get_blend_shape_count()):
+		// 				printerr("Invalid blend shape index in bind " + str(shape) + " for mesh " + str(node.name))
+		// 				continue
+		// 			var animtrack: int = anim.add_track(Animation.TYPE_BLEND_SHAPE)
+		// 			# nodeMesh.set_blend_shape_name(int(bind["index"]), shape["name"] + "_" + str(bind["index"]))
+		// 			anim.track_set_path(animtrack, str(animplayer.get_parent().get_path_to(node)) + ":" + str(nodeMesh.get_blend_shape_name(int(bind["index"]))))
+		// 			var interpolation: int = Animation.INTERPOLATION_LINEAR
+		// 			if shape.has("isBinary") and bool(shape["isBinary"]):
+		// 				interpolation = Animation.INTERPOLATION_NEAREST
+		// 			anim.track_set_interpolation_type(animtrack, interpolation)
+		// 			anim.track_insert_key(animtrack, 0.0, float(0.0))
+		// 			# FIXME: Godot has weird normal/tangent singularities at weight=1.0 or weight=0.5
+		// 			# So we multiply by 0.99999 to produce roughly the same output, avoiding these singularities.
+		// 			anim.track_insert_key(animtrack, 1.0, 0.99999 * float(bind["weight"]) / 100.0)
+		// 			#var mesh:ArrayMesh = meshes[bind["mesh"]].mesh
+		// 			#print("Mesh name: " + mesh.resource_name)
+		// 			#print("Bind index: " + str(bind["index"]))
+		// 			#print("Bind weight: " + str(float(bind["weight"]) / 100.0))
+
+		// 		# https://github.com/vrm-c/vrm-specification/tree/master/specification/0.0#blendshape-name-identifier
+		// 		animation_library.add_animation(shape["name"].to_upper() if shape["presetName"] == "unknown" else shape["presetName"].to_upper(), anim)
+
+		// 	var firstperson = vrm_extension["firstPerson"]
+
+		// 	var firstpersanim: Animation = Animation.new()
+		// 	animation_library.add_animation("FirstPerson", firstpersanim)
+
+		// 	var thirdpersanim: Animation = Animation.new()
+		// 	animation_library.add_animation("ThirdPerson", thirdpersanim)
+
+		// 	var skeletons:Array = gstate.get_skeletons()
+
+		// 	var head_bone_idx = firstperson.get("firstPersonBone", -1)
+		// 	if (head_bone_idx >= 0):
+		// 		var headNode: GLTFNode = nodes[head_bone_idx]
+		// 		var skeletonPath:NodePath = animplayer.get_parent().get_path_to(_get_skel_godot_node(gstate, nodes, skeletons, headNode.skeleton))
+		// 		var headBone: String = headNode.resource_name
+		// 		var headPath = str(skeletonPath) + ":" + headBone
+		// 		var firstperstrack = firstpersanim.add_track(Animation.TYPE_SCALE_3D)
+		// 		firstpersanim.track_set_path(firstperstrack, headPath)
+		// 		firstpersanim.scale_track_insert_key(firstperstrack, 0.0, Vector3(0.00001, 0.00001, 0.00001))
+		// 		var thirdperstrack = thirdpersanim.add_track(Animation.TYPE_SCALE_3D)
+		// 		thirdpersanim.track_set_path(thirdperstrack, headPath)
+		// 		thirdpersanim.scale_track_insert_key(thirdperstrack, 0.0, Vector3.ONE)
+
+		// 	for meshannotation in firstperson["meshAnnotations"]:
+
+		// 		var flag = FirstPersonParser.get(meshannotation["firstPersonFlag"], -1)
+		// 		var first_person_visibility;
+		// 		var third_person_visibility;
+		// 		if flag == FirstPersonFlag.ThirdPersonOnly:
+		// 			first_person_visibility = 0.0
+		// 			third_person_visibility = 1.0
+		// 		elif flag == FirstPersonFlag.FirstPersonOnly:
+		// 			first_person_visibility = 1.0
+		// 			third_person_visibility = 0.0
+		// 		else:
+		// 			continue
+		// 		var node: ImporterMeshInstance3D = mesh_idx_to_meshinstance[int(meshannotation["mesh"])]
+		// 		var firstperstrack = firstpersanim.add_track(Animation.TYPE_VALUE)
+		// 		firstpersanim.track_set_path(firstperstrack, str(animplayer.get_parent().get_path_to(node)) + ":visible")
+		// 		firstpersanim.track_insert_key(firstperstrack, 0.0, first_person_visibility)
+		// 		var thirdperstrack = thirdpersanim.add_track(Animation.TYPE_VALUE)
+		// 		thirdpersanim.track_set_path(thirdperstrack, str(animplayer.get_parent().get_path_to(node)) + ":visible")
+		// 		thirdpersanim.track_insert_key(thirdperstrack, 0.0, third_person_visibility)
+
+		// 	if firstperson.get("lookAtTypeName", "") == "Bone":
+		// 		var horizout = firstperson["lookAtHorizontalOuter"]
+		// 		var horizin = firstperson["lookAtHorizontalInner"]
+		// 		var vertup = firstperson["lookAtVerticalUp"]
+		// 		var vertdown = firstperson["lookAtVerticalDown"]
+		// 		var lefteye: int = human_bone_to_idx.get("leftEye", -1)
+		// 		var righteye: int = human_bone_to_idx.get("rightEye", -1)
+		// 		var leftEyePath:String = ""
+		// 		var rightEyePath:String = ""
+		// 		if lefteye > 0:
+		// 			var leftEyeNode: GLTFNode = nodes[lefteye]
+		// 			var skeleton:Skeleton3D = _get_skel_godot_node(gstate, nodes, skeletons,leftEyeNode.skeleton)
+		// 			var skeletonPath:NodePath = animplayer.get_parent().get_path_to(skeleton)
+		// 			leftEyePath = str(skeletonPath) + ":" + nodes[human_bone_to_idx["leftEye"]].resource_name
+		// 		if righteye > 0:
+		// 			var rightEyeNode: GLTFNode = nodes[righteye]
+		// 			var skeleton:Skeleton3D = _get_skel_godot_node(gstate, nodes, skeletons,rightEyeNode.skeleton)
+		// 			var skeletonPath:NodePath = animplayer.get_parent().get_path_to(skeleton)
+		// 			rightEyePath = str(skeletonPath) + ":" + nodes[human_bone_to_idx["rightEye"]].resource_name
+
+		// 		var anim: Animation = null
+		// 		if not animplayer.has_animation("LOOKLEFT"):
+		// 			anim = Animation.new()
+		// 			animation_library.add_animation("LOOKLEFT", anim)
+		// 		anim = animplayer.get_animation("LOOKLEFT")
+		// 		if anim and lefteye > 0 and righteye > 0:
+		// 			var animtrack: int = anim.add_track(Animation.TYPE_ROTATION_3D)
+		// 			anim.track_set_path(animtrack, leftEyePath)
+		// 			anim.track_set_interpolation_type(animtrack, Animation.INTERPOLATION_LINEAR)
+		// 			anim.rotation_track_insert_key(animtrack, 0.0, Quaternion.IDENTITY)
+		// 			anim.rotation_track_insert_key(animtrack, horizout["xRange"] / 90.0, (pose_diffs[lefteye] * Basis(Vector3(0,1,0), horizout["yRange"] * 3.14159/180.0)).get_rotation_quaternion())
+		// 			animtrack = anim.add_track(Animation.TYPE_ROTATION_3D)
+		// 			anim.track_set_path(animtrack, rightEyePath)
+		// 			anim.track_set_interpolation_type(animtrack, Animation.INTERPOLATION_LINEAR)
+		// 			anim.rotation_track_insert_key(animtrack, 0.0, Quaternion.IDENTITY)
+		// 			anim.rotation_track_insert_key(animtrack, horizin["xRange"] / 90.0, (pose_diffs[righteye] * Basis(Vector3(0,1,0), horizin["yRange"] * 3.14159/180.0)).get_rotation_quaternion())
+
+		// 		if not animplayer.has_animation("LOOKRIGHT"):
+		// 			anim = Animation.new()
+		// 			animation_library.add_animation("LOOKRIGHT", anim)
+		// 		anim = animplayer.get_animation("LOOKRIGHT")
+		// 		if anim and lefteye > 0 and righteye > 0:
+		// 			var animtrack: int = anim.add_track(Animation.TYPE_ROTATION_3D)
+		// 			anim.track_set_path(animtrack, leftEyePath)
+		// 			anim.track_set_interpolation_type(animtrack, Animation.INTERPOLATION_LINEAR)
+		// 			anim.rotation_track_insert_key(animtrack, 0.0, Quaternion.IDENTITY)
+		// 			anim.rotation_track_insert_key(animtrack, horizin["xRange"] / 90.0, (pose_diffs[lefteye] * Basis(Vector3(0,1,0), -horizin["yRange"] * 3.14159/180.0)).get_rotation_quaternion())
+		// 			animtrack = anim.add_track(Animation.TYPE_ROTATION_3D)
+		// 			anim.track_set_path(animtrack, rightEyePath)
+		// 			anim.track_set_interpolation_type(animtrack, Animation.INTERPOLATION_LINEAR)
+		// 			anim.rotation_track_insert_key(animtrack, 0.0, Quaternion.IDENTITY)
+		// 			anim.rotation_track_insert_key(animtrack, horizout["xRange"] / 90.0, (pose_diffs[righteye] * Basis(Vector3(0,1,0), -horizout["yRange"] * 3.14159/180.0)).get_rotation_quaternion())
+
+		// 		if not animplayer.has_animation("LOOKUP"):
+		// 			anim = Animation.new()
+		// 			animation_library.add_animation("LOOKUP", anim)
+		// 		anim = animplayer.get_animation("LOOKUP")
+		// 		if anim and lefteye > 0 and righteye > 0:
+		// 			var animtrack: int = anim.add_track(Animation.TYPE_ROTATION_3D)
+		// 			anim.track_set_path(animtrack, leftEyePath)
+		// 			anim.track_set_interpolation_type(animtrack, Animation.INTERPOLATION_LINEAR)
+		// 			anim.rotation_track_insert_key(animtrack, 0.0, Quaternion.IDENTITY)
+		// 			anim.rotation_track_insert_key(animtrack, vertup["xRange"] / 90.0, (pose_diffs[lefteye] * Basis(Vector3(1,0,0), vertup["yRange"] * 3.14159/180.0)).get_rotation_quaternion())
+		// 			animtrack = anim.add_track(Animation.TYPE_ROTATION_3D)
+		// 			anim.track_set_path(animtrack, rightEyePath)
+		// 			anim.track_set_interpolation_type(animtrack, Animation.INTERPOLATION_LINEAR)
+		// 			anim.rotation_track_insert_key(animtrack, 0.0, Quaternion.IDENTITY)
+		// 			anim.rotation_track_insert_key(animtrack, vertup["xRange"] / 90.0, (pose_diffs[righteye] * Basis(Vector3(1,0,0), vertup["yRange"] * 3.14159/180.0)).get_rotation_quaternion())
+
+		// 		if not animplayer.has_animation("LOOKDOWN"):
+		// 			anim = Animation.new()
+		// 			animation_library.add_animation("LOOKDOWN", anim)
+		// 		anim = animplayer.get_animation("LOOKDOWN")
+		// 		if anim and lefteye > 0 and righteye > 0:
+		// 			var animtrack: int = anim.add_track(Animation.TYPE_ROTATION_3D)
+		// 			anim.track_set_path(animtrack, leftEyePath)
+		// 			anim.track_set_interpolation_type(animtrack, Animation.INTERPOLATION_LINEAR)
+		// 			anim.rotation_track_insert_key(animtrack, 0.0, Quaternion.IDENTITY)
+		// 			anim.rotation_track_insert_key(animtrack, vertdown["xRange"] / 90.0, (pose_diffs[lefteye] * Basis(Vector3(1,0,0), -vertdown["yRange"] * 3.14159/180.0)).get_rotation_quaternion())
+		// 			animtrack = anim.add_track(Animation.TYPE_ROTATION_3D)
+		// 			anim.track_set_path(animtrack, rightEyePath)
+		// 			anim.track_set_interpolation_type(animtrack, Animation.INTERPOLATION_LINEAR)
+		// 			anim.rotation_track_insert_key(animtrack, 0.0, Quaternion.IDENTITY)
+		// 			anim.rotation_track_insert_key(animtrack, vertdown["xRange"] / 90.0, (pose_diffs[righteye] * Basis(Vector3(1,0,0), -vertdown["yRange"] * 3.14159/180.0)).get_rotation_quaternion())
+		// 	animplayer.add_animation_library("vrm", animation_library)
 		return animplayer;
 	}
-	// 	# Remove all glTF animation players for safety.
-	// 	# VRM does not support animation import in this way.
-	// 	for i in range(gstate.get_animation_players_count(0)):
-	// 		var node: AnimationPlayer = gstate.get_animation_player(i)
-	// 		node.get_parent().remove_child(node)
-
-	// 	var animation_library : AnimationLibrary = AnimationLibrary.new()
-
-	// 	var meshes = gstate.get_meshes()
-	// 	var nodes = gstate.get_nodes()
-	// 	var blend_shape_groups = vrm_extension["blendShapeMaster"]["blendShapeGroups"]
-	// 	# FIXME: Do we need to handle multiple references to the same mesh???
-	// 	var mesh_idx_to_meshinstance : Dictionary = {}
-	// 	var material_name_to_mesh_and_surface_idx: Dictionary = {}
-	// 	for i in range(meshes.size()):
-	// 		var gltfmesh : GLTFMesh = meshes[i]
-	// 		for j in range(gltfmesh.mesh.get_surface_count()):
-	// 			material_name_to_mesh_and_surface_idx[gltfmesh.mesh.get_surface_material(j).resource_name] = [i, j]
-
-	// 	for i in range(nodes.size()):
-	// 		var gltfnode: GLTFNode = nodes[i]
-	// 		var mesh_idx: int = gltfnode.mesh
-	// 		#print("node idx " + str(i) + " node name " + gltfnode.resource_name + " mesh idx " + str(mesh_idx))
-	// 		if (mesh_idx != -1):
-	// 			var scenenode: ImporterMeshInstance3D = gstate.get_scene_node(i)
-	// 			mesh_idx_to_meshinstance[mesh_idx] = scenenode
-	// 			#print("insert " + str(mesh_idx) + " node name " + scenenode.name)
-
-	// 	for shape in blend_shape_groups:
-	// 		#print("Blend shape group: " + shape["name"])
-	// 		var anim = Animation.new()
-
-	// 		for matbind in shape["materialValues"]:
-	// 			var mesh_and_surface_idx = material_name_to_mesh_and_surface_idx[matbind["materialName"]]
-	// 			var node: ImporterMeshInstance3D = mesh_idx_to_meshinstance[mesh_and_surface_idx[0]]
-	// 			var surface_idx = mesh_and_surface_idx[1]
-
-	// 			var mat: Material = node.get_surface_material(surface_idx)
-	// 			var paramprop = "shader_uniform/" + matbind["parameterName"]
-	// 			var origvalue = null
-	// 			var tv = matbind["targetValue"]
-	// 			var newvalue = tv[0]
-
-	// 			if (mat is ShaderMaterial):
-	// 				var smat: ShaderMaterial = mat
-	// 				var param = smat.get_shader_uniform(matbind["parameterName"])
-	// 				if param is Color:
-	// 					origvalue = param
-	// 					newvalue = Color(tv[0], tv[1], tv[2], tv[3])
-	// 				elif matbind["parameterName"] == "_MainTex" or matbind["parameterName"] == "_MainTex_ST":
-	// 					origvalue = param
-	// 					newvalue = Plane(tv[2], tv[3], tv[0], tv[1]) if matbind["parameterName"] == "_MainTex" else Plane(tv[0], tv[1], tv[2], tv[3])
-	// 				elif param is float:
-	// 					origvalue = param
-	// 					newvalue = tv[0]
-	// 				else:
-	// 					printerr("Unknown type for parameter " + matbind["parameterName"] + " surface " + node.name + "/" + str(surface_idx))
-
-	// 			if origvalue != null:
-	// 				var animtrack: int = anim.add_track(Animation.TYPE_VALUE)
-	// 				anim.track_set_path(animtrack, str(animplayer.get_parent().get_path_to(node)) + ":mesh:surface_" + str(surface_idx) + "/material:" + paramprop)
-	// 				anim.track_set_interpolation_type(animtrack, Animation.INTERPOLATION_NEAREST if bool(shape["isBinary"]) else Animation.INTERPOLATION_LINEAR)
-	// 				anim.track_insert_key(animtrack, 0.0, origvalue)
-	// 				anim.track_insert_key(animtrack, 0.0, newvalue)
-	// 		for bind in shape["binds"]:
-	// 			# FIXME: Is this a mesh_idx or a node_idx???
-	// 			var node: ImporterMeshInstance3D = mesh_idx_to_meshinstance[int(bind["mesh"])]
-	// 			var nodeMesh: ImporterMesh = node.mesh;
-
-	// 			if (bind["index"] < 0 || bind["index"] >= nodeMesh.get_blend_shape_count()):
-	// 				printerr("Invalid blend shape index in bind " + str(shape) + " for mesh " + str(node.name))
-	// 				continue
-	// 			var animtrack: int = anim.add_track(Animation.TYPE_BLEND_SHAPE)
-	// 			# nodeMesh.set_blend_shape_name(int(bind["index"]), shape["name"] + "_" + str(bind["index"]))
-	// 			anim.track_set_path(animtrack, str(animplayer.get_parent().get_path_to(node)) + ":" + str(nodeMesh.get_blend_shape_name(int(bind["index"]))))
-	// 			var interpolation: int = Animation.INTERPOLATION_LINEAR
-	// 			if shape.has("isBinary") and bool(shape["isBinary"]):
-	// 				interpolation = Animation.INTERPOLATION_NEAREST
-	// 			anim.track_set_interpolation_type(animtrack, interpolation)
-	// 			anim.track_insert_key(animtrack, 0.0, float(0.0))
-	// 			# FIXME: Godot has weird normal/tangent singularities at weight=1.0 or weight=0.5
-	// 			# So we multiply by 0.99999 to produce roughly the same output, avoiding these singularities.
-	// 			anim.track_insert_key(animtrack, 1.0, 0.99999 * float(bind["weight"]) / 100.0)
-	// 			#var mesh:ArrayMesh = meshes[bind["mesh"]].mesh
-	// 			#print("Mesh name: " + mesh.resource_name)
-	// 			#print("Bind index: " + str(bind["index"]))
-	// 			#print("Bind weight: " + str(float(bind["weight"]) / 100.0))
-
-	// 		# https://github.com/vrm-c/vrm-specification/tree/master/specification/0.0#blendshape-name-identifier
-	// 		animation_library.add_animation(shape["name"].to_upper() if shape["presetName"] == "unknown" else shape["presetName"].to_upper(), anim)
-
-	// 	var firstperson = vrm_extension["firstPerson"]
-
-	// 	var firstpersanim: Animation = Animation.new()
-	// 	animation_library.add_animation("FirstPerson", firstpersanim)
-
-	// 	var thirdpersanim: Animation = Animation.new()
-	// 	animation_library.add_animation("ThirdPerson", thirdpersanim)
-
-	// 	var skeletons:Array = gstate.get_skeletons()
-
-	// 	var head_bone_idx = firstperson.get("firstPersonBone", -1)
-	// 	if (head_bone_idx >= 0):
-	// 		var headNode: GLTFNode = nodes[head_bone_idx]
-	// 		var skeletonPath:NodePath = animplayer.get_parent().get_path_to(_get_skel_godot_node(gstate, nodes, skeletons, headNode.skeleton))
-	// 		var headBone: String = headNode.resource_name
-	// 		var headPath = str(skeletonPath) + ":" + headBone
-	// 		var firstperstrack = firstpersanim.add_track(Animation.TYPE_SCALE_3D)
-	// 		firstpersanim.track_set_path(firstperstrack, headPath)
-	// 		firstpersanim.scale_track_insert_key(firstperstrack, 0.0, Vector3(0.00001, 0.00001, 0.00001))
-	// 		var thirdperstrack = thirdpersanim.add_track(Animation.TYPE_SCALE_3D)
-	// 		thirdpersanim.track_set_path(thirdperstrack, headPath)
-	// 		thirdpersanim.scale_track_insert_key(thirdperstrack, 0.0, Vector3.ONE)
-
-	// 	for meshannotation in firstperson["meshAnnotations"]:
-
-	// 		var flag = FirstPersonParser.get(meshannotation["firstPersonFlag"], -1)
-	// 		var first_person_visibility;
-	// 		var third_person_visibility;
-	// 		if flag == FirstPersonFlag.ThirdPersonOnly:
-	// 			first_person_visibility = 0.0
-	// 			third_person_visibility = 1.0
-	// 		elif flag == FirstPersonFlag.FirstPersonOnly:
-	// 			first_person_visibility = 1.0
-	// 			third_person_visibility = 0.0
-	// 		else:
-	// 			continue
-	// 		var node: ImporterMeshInstance3D = mesh_idx_to_meshinstance[int(meshannotation["mesh"])]
-	// 		var firstperstrack = firstpersanim.add_track(Animation.TYPE_VALUE)
-	// 		firstpersanim.track_set_path(firstperstrack, str(animplayer.get_parent().get_path_to(node)) + ":visible")
-	// 		firstpersanim.track_insert_key(firstperstrack, 0.0, first_person_visibility)
-	// 		var thirdperstrack = thirdpersanim.add_track(Animation.TYPE_VALUE)
-	// 		thirdpersanim.track_set_path(thirdperstrack, str(animplayer.get_parent().get_path_to(node)) + ":visible")
-	// 		thirdpersanim.track_insert_key(thirdperstrack, 0.0, third_person_visibility)
-
-	// 	if firstperson.get("lookAtTypeName", "") == "Bone":
-	// 		var horizout = firstperson["lookAtHorizontalOuter"]
-	// 		var horizin = firstperson["lookAtHorizontalInner"]
-	// 		var vertup = firstperson["lookAtVerticalUp"]
-	// 		var vertdown = firstperson["lookAtVerticalDown"]
-	// 		var lefteye: int = human_bone_to_idx.get("leftEye", -1)
-	// 		var righteye: int = human_bone_to_idx.get("rightEye", -1)
-	// 		var leftEyePath:String = ""
-	// 		var rightEyePath:String = ""
-	// 		if lefteye > 0:
-	// 			var leftEyeNode: GLTFNode = nodes[lefteye]
-	// 			var skeleton:Skeleton3D = _get_skel_godot_node(gstate, nodes, skeletons,leftEyeNode.skeleton)
-	// 			var skeletonPath:NodePath = animplayer.get_parent().get_path_to(skeleton)
-	// 			leftEyePath = str(skeletonPath) + ":" + nodes[human_bone_to_idx["leftEye"]].resource_name
-	// 		if righteye > 0:
-	// 			var rightEyeNode: GLTFNode = nodes[righteye]
-	// 			var skeleton:Skeleton3D = _get_skel_godot_node(gstate, nodes, skeletons,rightEyeNode.skeleton)
-	// 			var skeletonPath:NodePath = animplayer.get_parent().get_path_to(skeleton)
-	// 			rightEyePath = str(skeletonPath) + ":" + nodes[human_bone_to_idx["rightEye"]].resource_name
-
-	// 		var anim: Animation = null
-	// 		if not animplayer.has_animation("LOOKLEFT"):
-	// 			anim = Animation.new()
-	// 			animation_library.add_animation("LOOKLEFT", anim)
-	// 		anim = animplayer.get_animation("LOOKLEFT")
-	// 		if anim and lefteye > 0 and righteye > 0:
-	// 			var animtrack: int = anim.add_track(Animation.TYPE_ROTATION_3D)
-	// 			anim.track_set_path(animtrack, leftEyePath)
-	// 			anim.track_set_interpolation_type(animtrack, Animation.INTERPOLATION_LINEAR)
-	// 			anim.rotation_track_insert_key(animtrack, 0.0, Quaternion.IDENTITY)
-	// 			anim.rotation_track_insert_key(animtrack, horizout["xRange"] / 90.0, (pose_diffs[lefteye] * Basis(Vector3(0,1,0), horizout["yRange"] * 3.14159/180.0)).get_rotation_quaternion())
-	// 			animtrack = anim.add_track(Animation.TYPE_ROTATION_3D)
-	// 			anim.track_set_path(animtrack, rightEyePath)
-	// 			anim.track_set_interpolation_type(animtrack, Animation.INTERPOLATION_LINEAR)
-	// 			anim.rotation_track_insert_key(animtrack, 0.0, Quaternion.IDENTITY)
-	// 			anim.rotation_track_insert_key(animtrack, horizin["xRange"] / 90.0, (pose_diffs[righteye] * Basis(Vector3(0,1,0), horizin["yRange"] * 3.14159/180.0)).get_rotation_quaternion())
-
-	// 		if not animplayer.has_animation("LOOKRIGHT"):
-	// 			anim = Animation.new()
-	// 			animation_library.add_animation("LOOKRIGHT", anim)
-	// 		anim = animplayer.get_animation("LOOKRIGHT")
-	// 		if anim and lefteye > 0 and righteye > 0:
-	// 			var animtrack: int = anim.add_track(Animation.TYPE_ROTATION_3D)
-	// 			anim.track_set_path(animtrack, leftEyePath)
-	// 			anim.track_set_interpolation_type(animtrack, Animation.INTERPOLATION_LINEAR)
-	// 			anim.rotation_track_insert_key(animtrack, 0.0, Quaternion.IDENTITY)
-	// 			anim.rotation_track_insert_key(animtrack, horizin["xRange"] / 90.0, (pose_diffs[lefteye] * Basis(Vector3(0,1,0), -horizin["yRange"] * 3.14159/180.0)).get_rotation_quaternion())
-	// 			animtrack = anim.add_track(Animation.TYPE_ROTATION_3D)
-	// 			anim.track_set_path(animtrack, rightEyePath)
-	// 			anim.track_set_interpolation_type(animtrack, Animation.INTERPOLATION_LINEAR)
-	// 			anim.rotation_track_insert_key(animtrack, 0.0, Quaternion.IDENTITY)
-	// 			anim.rotation_track_insert_key(animtrack, horizout["xRange"] / 90.0, (pose_diffs[righteye] * Basis(Vector3(0,1,0), -horizout["yRange"] * 3.14159/180.0)).get_rotation_quaternion())
-
-	// 		if not animplayer.has_animation("LOOKUP"):
-	// 			anim = Animation.new()
-	// 			animation_library.add_animation("LOOKUP", anim)
-	// 		anim = animplayer.get_animation("LOOKUP")
-	// 		if anim and lefteye > 0 and righteye > 0:
-	// 			var animtrack: int = anim.add_track(Animation.TYPE_ROTATION_3D)
-	// 			anim.track_set_path(animtrack, leftEyePath)
-	// 			anim.track_set_interpolation_type(animtrack, Animation.INTERPOLATION_LINEAR)
-	// 			anim.rotation_track_insert_key(animtrack, 0.0, Quaternion.IDENTITY)
-	// 			anim.rotation_track_insert_key(animtrack, vertup["xRange"] / 90.0, (pose_diffs[lefteye] * Basis(Vector3(1,0,0), vertup["yRange"] * 3.14159/180.0)).get_rotation_quaternion())
-	// 			animtrack = anim.add_track(Animation.TYPE_ROTATION_3D)
-	// 			anim.track_set_path(animtrack, rightEyePath)
-	// 			anim.track_set_interpolation_type(animtrack, Animation.INTERPOLATION_LINEAR)
-	// 			anim.rotation_track_insert_key(animtrack, 0.0, Quaternion.IDENTITY)
-	// 			anim.rotation_track_insert_key(animtrack, vertup["xRange"] / 90.0, (pose_diffs[righteye] * Basis(Vector3(1,0,0), vertup["yRange"] * 3.14159/180.0)).get_rotation_quaternion())
-
-	// 		if not animplayer.has_animation("LOOKDOWN"):
-	// 			anim = Animation.new()
-	// 			animation_library.add_animation("LOOKDOWN", anim)
-	// 		anim = animplayer.get_animation("LOOKDOWN")
-	// 		if anim and lefteye > 0 and righteye > 0:
-	// 			var animtrack: int = anim.add_track(Animation.TYPE_ROTATION_3D)
-	// 			anim.track_set_path(animtrack, leftEyePath)
-	// 			anim.track_set_interpolation_type(animtrack, Animation.INTERPOLATION_LINEAR)
-	// 			anim.rotation_track_insert_key(animtrack, 0.0, Quaternion.IDENTITY)
-	// 			anim.rotation_track_insert_key(animtrack, vertdown["xRange"] / 90.0, (pose_diffs[lefteye] * Basis(Vector3(1,0,0), -vertdown["yRange"] * 3.14159/180.0)).get_rotation_quaternion())
-	// 			animtrack = anim.add_track(Animation.TYPE_ROTATION_3D)
-	// 			anim.track_set_path(animtrack, rightEyePath)
-	// 			anim.track_set_interpolation_type(animtrack, Animation.INTERPOLATION_LINEAR)
-	// 			anim.rotation_track_insert_key(animtrack, 0.0, Quaternion.IDENTITY)
-	// 			anim.rotation_track_insert_key(animtrack, vertdown["xRange"] / 90.0, (pose_diffs[righteye] * Basis(Vector3(1,0,0), -vertdown["yRange"] * 3.14159/180.0)).get_rotation_quaternion())
-	// 	animplayer.add_animation_library("vrm", animation_library)
-	// 	return animplayer
 
 	void _parse_secondary_node(Node *secondary_node, Dictionary vrm_extension, Ref<GLTFState> gstate, TypedArray<Basis> pose_diffs, bool is_vrm_0) {
 		// 	var nodes = gstate.get_nodes()
