@@ -43,6 +43,7 @@
 
 class vrm_constants_class : public RefCounted {
 	GDCLASS(vrm_constants_class, RefCounted);
+
 public:
 	Dictionary vrm_to_human_bone;
 
@@ -110,7 +111,76 @@ public:
 		}
 	}
 };
-class VRMMeta;
+
+class VRMMeta : public Resource {
+	GDCLASS(VRMMeta, Resource);
+
+public:
+	// VRM extension is for 3d humanoid avatars (and models) in VR applications.
+	// Meta schema:
+
+	//Title of VRM model
+	String title;
+
+	//Version of VRM model
+	String version;
+
+	//Author of VRM model
+	String author;
+
+	//Contact Information of VRM model author
+	String contact_information;
+
+	//Reference of VRM model
+	String reference_information;
+
+	// Thumbnail of VRM model
+	Ref<Texture2D> texture;
+
+	//A person who can perform with this avatar
+	String allowed_user_name;
+	// (String,"","OnlyAuthor","ExplicitlyLicensedPerson","Everyone")
+	//Permission to perform violent acts with this avatar
+	String violent_usage;
+	// (String,"","Disallow","Allow")
+	//Permission to perform sexual acts with this avatar
+	String sexual_usage;
+	// (String,"","Disallow","Allow")
+	//For commercial use
+	String commercial_usage;
+	// (String,"","Disallow","Allow")
+	//If there are any conditions not mentioned above, put the URL link of the license document here.
+	String other_permission_url;
+
+	//License type
+	String license_name;
+	// (String,"","Redistribution_Prohibited","CC0","CC_BY","CC_BY_NC","CC_BY_SA","CC_BY_NC_SA","CC_BY_ND","CC_BY_NC_ND","Other")
+	//If "Other" is selected, put the URL link of the license document here.
+	String other_license_url;
+
+	//Human bone name -> Reference node index
+	//NOTE: We are currently discarding all Unity-specific data.
+	//We may need to store it somewhere in case we wish to re-export.
+	Ref<BoneMap> humanoid_bone_mapping; // VRM boneName -> bone name (within skeleton)
+
+	NodePath humanoid_skeleton_path;
+
+	//firstPersonBoneOffset:
+	//The target position of the VR headset in first-person view.
+	//It is assumed that an offset from the head bone to the VR headset is added.
+	Vector3 eye_offset;
+	//NOTE: Mouth offset is not stored in any model metadata.
+	//As an alternative, we could get the centroid of vertices moved by viseme blend shapes.
+	//But for now, users should assume same as eyeOffset with y=0 (relative to head)
+
+	//Toplevel schema, belongs in vrm_meta:
+	//Version of exporter that vrm created. UniVRM-0.46
+	String exporter_version;
+
+	//Version of VRM specification. 0.0
+	String spec_version;
+};
+
 class VRMTopLevel : public Node3D {
 	GDCLASS(VRMTopLevel, Node3D);
 	NodePath vrm_skeleton;
@@ -225,6 +295,7 @@ public:
 
 class SphereCollider : public Resource {
 	GDCLASS(SphereCollider, Resource);
+
 public:
 	int idx = -1;
 	Vector3 offset;
@@ -256,6 +327,7 @@ public:
 // Individual spring bone entries.
 class VRMSpringBoneLogic : public RefCounted {
 	GDCLASS(VRMSpringBoneLogic, RefCounted);
+
 public:
 	bool force_update = true;
 	int bone_idx = -1;
@@ -360,6 +432,7 @@ public:
 
 class VRMSpringBone : public Resource {
 	GDCLASS(VRMSpringBone, Resource);
+
 public:
 	// # Annotation comment
 	// @export
@@ -657,6 +730,7 @@ public:
 
 class VRMColliderGroup : public Resource {
 	GDCLASS(VRMColliderGroup, Resource);
+
 public:
 	// Bone name references are only valid within the given Skeleton.
 	// If the node was not a skeleton, bone is "" and contains a path to the node.
@@ -714,6 +788,7 @@ public:
 
 class VRMSecondary : public Node3D {
 	GDCLASS(VRMSecondary, Node3D);
+
 public:
 	//@export
 	Vector<Ref<VRMSpringBone>> spring_bones;
@@ -853,76 +928,9 @@ public:
 	}
 };
 
-class VRMMeta : public Resource {
-	GDCLASS(VRMMeta, Resource);
-public:
-	// VRM extension is for 3d humanoid avatars (and models) in VR applications.
-	// Meta schema:
-
-	//Title of VRM model
-	String title;
-
-	//Version of VRM model
-	String version;
-
-	//Author of VRM model
-	String author;
-
-	//Contact Information of VRM model author
-	String contact_information;
-
-	//Reference of VRM model
-	String reference_information;
-
-	// Thumbnail of VRM model
-	Ref<Texture2D> texture;
-
-	//A person who can perform with this avatar
-	String allowed_user_name;
-	// (String,"","OnlyAuthor","ExplicitlyLicensedPerson","Everyone")
-	//Permission to perform violent acts with this avatar
-	String violent_usage;
-	// (String,"","Disallow","Allow")
-	//Permission to perform sexual acts with this avatar
-	String sexual_usage;
-	// (String,"","Disallow","Allow")
-	//For commercial use
-	String commercial_usage;
-	// (String,"","Disallow","Allow")
-	//If there are any conditions not mentioned above, put the URL link of the license document here.
-	String other_permission_url;
-
-	//License type
-	String license_name;
-	// (String,"","Redistribution_Prohibited","CC0","CC_BY","CC_BY_NC","CC_BY_SA","CC_BY_NC_SA","CC_BY_ND","CC_BY_NC_ND","Other")
-	//If "Other" is selected, put the URL link of the license document here.
-	String other_license_url;
-
-	//Human bone name -> Reference node index
-	//NOTE: We are currently discarding all Unity-specific data.
-	//We may need to store it somewhere in case we wish to re-export.
-	Ref<BoneMap> humanoid_bone_mapping; // VRM boneName -> bone name (within skeleton)
-
-	NodePath humanoid_skeleton_path;
-
-	//firstPersonBoneOffset:
-	//The target position of the VR headset in first-person view.
-	//It is assumed that an offset from the head bone to the VR headset is added.
-	Vector3 eye_offset;
-	//NOTE: Mouth offset is not stored in any model metadata.
-	//As an alternative, we could get the centroid of vertices moved by viseme blend shapes.
-	//But for now, users should assume same as eyeOffset with y=0 (relative to head)
-
-	//Toplevel schema, belongs in vrm_meta:
-	//Version of exporter that vrm created. UniVRM-0.46
-	String exporter_version;
-
-	//Version of VRM specification. 0.0
-	String spec_version;
-};
-
 class VRMEditorSceneFormatImporter : public EditorSceneFormatImporter {
 	GDCLASS(VRMEditorSceneFormatImporter, EditorSceneFormatImporter);
+
 public:
 	virtual uint32_t get_import_flags() const { return IMPORT_SCENE; }
 	virtual void get_extensions(List<String> *r_extensions) const {
@@ -1592,43 +1600,43 @@ public:
 				eyeOffset = Basis(pose_diffs[int32_t(human_bone_to_idx["head"])]).xform(eyeOffset);
 			}
 		}
-		Ref<VRMMeta> vrm_meta;
-		vrm_meta.instantiate();
-		vrm_meta->set_name("CLICK TO SEE METADATA");
+		Ref<VRMMeta> new_vrm_meta;
+		new_vrm_meta.instantiate();
+		new_vrm_meta->set_name("CLICK TO SEE METADATA");
 		if (!vrm_extension.has("exporterVersion")) {
-			vrm_meta->exporter_version = "";
+			new_vrm_meta->exporter_version = "";
 		} else {
-			vrm_meta->exporter_version = vrm_extension["exporterVersion"];
+			new_vrm_meta->exporter_version = vrm_extension["exporterVersion"];
 		}
 		if (!vrm_extension.has("specVersion")) {
-			vrm_meta->spec_version = "";
+			new_vrm_meta->spec_version = "";
 		} else {
-			vrm_meta->spec_version = vrm_extension["specVersion"];
+			new_vrm_meta->spec_version = vrm_extension["specVersion"];
 		}
 		Dictionary vrm_extension_meta;
 		if (vrm_extension.has("meta")) {
 			vrm_extension_meta = vrm_extension["meta"];
 		}
 		// ----
-		vrm_meta->title = "";
+		new_vrm_meta->title = "";
 		if (!vrm_extension_meta.has("title")) {
-			vrm_meta->title = vrm_extension_meta["title"];
+			new_vrm_meta->title = vrm_extension_meta["title"];
 		}
-		vrm_meta->version = "";
+		new_vrm_meta->version = "";
 		if (vrm_extension_meta.has("version")) {
-			vrm_meta->version = vrm_extension_meta["version"];
+			new_vrm_meta->version = vrm_extension_meta["version"];
 		}
-		vrm_meta->author = "";
+		new_vrm_meta->author = "";
 		if (vrm_extension_meta.has("author")) {
-			vrm_meta->author = vrm_extension_meta["author"];
+			new_vrm_meta->author = vrm_extension_meta["author"];
 		}
-		vrm_meta->contact_information = "";
+		new_vrm_meta->contact_information = "";
 		if (vrm_extension_meta.has("contactInformation")) {
-			vrm_meta->contact_information = vrm_extension_meta["contactInformation"];
+			new_vrm_meta->contact_information = vrm_extension_meta["contactInformation"];
 		}
-		vrm_meta->contact_information = "";
+		new_vrm_meta->contact_information = "";
 		if (vrm_extension_meta.has("reference")) {
-			vrm_meta->contact_information = vrm_extension_meta["reference"];
+			new_vrm_meta->contact_information = vrm_extension_meta["reference"];
 		}
 		int tex = -1;
 		if (vrm_extension_meta.has("texture")) {
@@ -1636,46 +1644,46 @@ public:
 		}
 		if (tex >= 0) {
 			Ref<GLTFTexture> gltftex = gstate->get_textures()[tex];
-			vrm_meta->texture = gstate->get_images()[gltftex->get_src_image()];
+			new_vrm_meta->texture = gstate->get_images()[gltftex->get_src_image()];
 		}
 
-		vrm_meta->allowed_user_name = "";
+		new_vrm_meta->allowed_user_name = "";
 		if (vrm_extension_meta.has("allowedUserName")) {
-			vrm_meta->allowed_user_name = vrm_extension_meta["allowedUserName"];
+			new_vrm_meta->allowed_user_name = vrm_extension_meta["allowedUserName"];
 		}
 
 		// Ussage (sic.) in VRM spec
-		vrm_meta->violent_usage = "";
+		new_vrm_meta->violent_usage = "";
 		if (vrm_extension_meta.has("violentUssageName")) {
-			vrm_meta->violent_usage = vrm_extension_meta["violentUssageName"];
+			new_vrm_meta->violent_usage = vrm_extension_meta["violentUssageName"];
 		}
 		// Ussage (sic.) in VRM spec
-		vrm_meta->sexual_usage = "";
+		new_vrm_meta->sexual_usage = "";
 		if (vrm_extension_meta.has("sexualUssageName")) {
-			vrm_meta->sexual_usage = vrm_extension_meta["sexualUssageName"];
+			new_vrm_meta->sexual_usage = vrm_extension_meta["sexualUssageName"];
 		}
 		// Ussage (sic.) in VRM spec
-		vrm_meta->commercial_usage = "";
+		new_vrm_meta->commercial_usage = "";
 		if (vrm_extension_meta.has("commercialUssageName")) {
-			vrm_meta->commercial_usage = vrm_extension_meta["commercialUssageName"];
+			new_vrm_meta->commercial_usage = vrm_extension_meta["commercialUssageName"];
 		}
-		vrm_meta->other_permission_url = "";
+		new_vrm_meta->other_permission_url = "";
 		if (vrm_extension_meta.has("otherPermissionUrl")) {
-			vrm_meta->other_permission_url = vrm_extension_meta["otherPermissionUrl"];
+			new_vrm_meta->other_permission_url = vrm_extension_meta["otherPermissionUrl"];
 		}
-		vrm_meta->license_name = "";
+		new_vrm_meta->license_name = "";
 		if (vrm_extension_meta.has("licenseName")) {
-			vrm_meta->license_name = vrm_extension_meta["licenseName"];
+			new_vrm_meta->license_name = vrm_extension_meta["licenseName"];
 		}
-		vrm_meta->other_license_url = "";
+		new_vrm_meta->other_license_url = "";
 		if (vrm_extension_meta.has("otherLicenseUrl")) {
-			vrm_meta->other_license_url = vrm_extension_meta["otherLicenseUrl"];
+			new_vrm_meta->other_license_url = vrm_extension_meta["otherLicenseUrl"];
 		}
 		// ----
-		vrm_meta->eye_offset = eyeOffset;
-		vrm_meta->humanoid_bone_mapping = humanBones;
-		vrm_meta->humanoid_skeleton_path = skeletonPath;
-		return vrm_meta;
+		new_vrm_meta->eye_offset = eyeOffset;
+		new_vrm_meta->humanoid_bone_mapping = humanBones;
+		new_vrm_meta->humanoid_skeleton_path = skeletonPath;
+		return new_vrm_meta;
 	}
 
 	AnimationPlayer *_create_animation_player(AnimationPlayer *animplayer, Dictionary vrm_extension, Ref<GLTFState> gstate, Dictionary human_bone_to_idx, TypedArray<Basis> pose_diffs) {
