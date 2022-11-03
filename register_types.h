@@ -1257,19 +1257,6 @@ public:
 			src_skeleton->set_bone_pose_rotation(i, fixed_rest.basis.get_rotation_quaternion());
 			src_skeleton->set_bone_pose_scale(i, fixed_rest.basis.get_scale());
 		}
-		{
-			Array nodes = p_base_scene->find_children("*", "BoneAttachment3D");
-			while (!nodes.is_empty()) {
-				Variant variant_node = nodes.pop_back();
-				BoneAttachment3D *attachment_3d = cast_to<BoneAttachment3D>(variant_node);
-				if (!attachment_3d) {
-					continue;
-				}
-				Transform3D transform = attachment_3d->get_transform();
-				transform.scale(Vector3(-1.0f, 1.0f, -1.0f));
-				attachment_3d->set_transform(transform);
-			}
-		}
 	}
 
 	enum DebugMode {
@@ -2165,6 +2152,17 @@ public:
 			for (int32_t bone_i = 0; bone_i < skeleton->get_bone_count(); bone_i++) {
 				pose_diffs.append(Basis());
 			}
+		}
+		Array nodes = root_node->find_children("*", "BoneAttachment3D");
+		while (!nodes.is_empty()) {
+			Variant variant_node = nodes.pop_back();
+			BoneAttachment3D *attachment_3d = cast_to<BoneAttachment3D>(variant_node);
+			if (!attachment_3d) {
+				continue;
+			}
+			Transform3D transform = attachment_3d->get_transform();
+			transform.scale(Vector3(-1.0f, 1.0f, -1.0f));
+			attachment_3d->set_transform(transform);
 		}
 		_update_materials(vrm_extension, gstate);
 		AnimationPlayer *animplayer = memnew(AnimationPlayer);
