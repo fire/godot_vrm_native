@@ -42,6 +42,7 @@
 #include "register_types.h"
 
 class vrm_constants_class : public RefCounted {
+	GDCLASS(vrm_constants_class, RefCounted);
 public:
 	Dictionary vrm_to_human_bone;
 
@@ -111,6 +112,7 @@ public:
 };
 
 class VRMTopLevel : public Node3D {
+	GDCLASS(VRMTopLevel, Node3D);
 	NodePath vrm_skeleton;
 	NodePath vrm_animplayer;
 	NodePath vrm_secondary;
@@ -220,6 +222,7 @@ public:
 };
 
 class SphereCollider : public Resource {
+	GDCLASS(SphereCollider, Resource);
 public:
 	int idx = -1;
 	Vector3 offset;
@@ -250,6 +253,7 @@ public:
 
 // Individual spring bone entries.
 class VRMSpringBoneLogic : public RefCounted {
+	GDCLASS(VRMSpringBoneLogic, RefCounted);
 public:
 	bool force_update = true;
 	int bone_idx = -1;
@@ -353,6 +357,7 @@ public:
 };
 
 class VRMSpringBone : public Resource {
+	GDCLASS(VRMSpringBone, Resource);
 public:
 	// # Annotation comment
 	// @export
@@ -482,6 +487,7 @@ public:
 };
 
 class SecondaryGizmo : public MeshInstance3D {
+	GDCLASS(SecondaryGizmo, MeshInstance3D);
 	Node *secondary_node = nullptr;
 	Ref<StandardMaterial3D> m = memnew(StandardMaterial3D);
 
@@ -648,6 +654,7 @@ public:
 };
 
 class VRMColliderGroup : public Resource {
+	GDCLASS(VRMColliderGroup, Resource);
 public:
 	// Bone name references are only valid within the given Skeleton.
 	// If the node was not a skeleton, bone is "" and contains a path to the node.
@@ -704,6 +711,7 @@ public:
 };
 
 class VRMSecondary : public Node3D {
+	GDCLASS(VRMSecondary, Node3D);
 public:
 	//@export
 	Vector<Ref<VRMSpringBone>> spring_bones;
@@ -844,6 +852,7 @@ public:
 };
 
 class VRMMeta : public Resource {
+	GDCLASS(VRMMeta, Resource);
 public:
 	// VRM extension is for 3d humanoid avatars (and models) in VR applications.
 	// Meta schema:
@@ -911,6 +920,7 @@ public:
 };
 
 class VRMEditorSceneFormatImporter : public EditorSceneFormatImporter {
+	GDCLASS(VRMEditorSceneFormatImporter, EditorSceneFormatImporter);
 public:
 	virtual uint32_t get_import_flags() const { return IMPORT_SCENE; }
 	virtual void get_extensions(List<String> *r_extensions) const {
@@ -1250,7 +1260,8 @@ public:
 				if (!attachment_3d) {
 					continue;
 				}
-				Transform3D transform = attachment_3d->get_transform() * ROTATE_180_TRANSFORM;
+				Transform3D transform = attachment_3d->get_transform();
+				transform.scale(Vector3(-1.0f, 1.0f, -1.0f));
 				attachment_3d->set_transform(transform);
 			}
 		}
@@ -2083,8 +2094,8 @@ public:
 			print_error("Failed to find required VRM keys in json");
 			return nullptr;
 		}
-		Node *original_root_node = gltf->generate_scene(gstate, 30);
 		VRMTopLevel *root_node = memnew(VRMTopLevel);
+		Node *original_root_node = gltf->generate_scene(gstate, 30);
 		original_root_node->replace_by(root_node, true);
 		original_root_node->queue_free();
 		bool is_vrm_0 = true;
@@ -2154,8 +2165,8 @@ public:
 		animplayer->set_owner(root_node);
 		_create_animation_player(animplayer, vrm_extension, gstate, human_bone_to_idx, pose_diffs);
 		Ref<Resource> vrm_meta = _create_meta(root_node, animplayer, vrm_extension, gstate, skeleton, humanBones, human_bone_to_idx, pose_diffs);
-		root_node->set("vrm_meta", vrm_meta);
-		root_node->set("vrm_secondary", NodePath());
+		root_node->set_vrm_meta(vrm_meta);
+		root_node->set_vrm_secondary(NodePath());
 		if (!vrm_extension.has("secondaryAnimation")) {
 			return root_node;
 		}
