@@ -946,7 +946,7 @@ public:
 		// MESH and SKIN data divide, to compensate for object position multiplying.
 		int surf_count = mesh->get_surface_count();
 		Array surf_data_by_mesh;
-		Vector<String> blendshapes;
+		Array blendshapes;
 		for (int32_t bsidx = 0; bsidx < mesh->get_blend_shape_count(); bsidx++) {
 			blendshapes.append(mesh->get_blend_shape_name(bsidx));
 		}
@@ -963,19 +963,17 @@ public:
 			// TODO: RESTORE LODS.
 			Dictionary lods; // mesh.surface_get_lods(surf_idx) # get_lods(mesh, surf_idx);
 			Ref<Material> mat = mesh->get_surface_material(surf_idx);
-			Vector<Vector3> src_vertex_arr = arr[ArrayMesh::ARRAY_VERTEX];
-			int32_t vertex_length = src_vertex_arr.size();
-			Vector<Vector3> vertex_arr;
+			Vector<Vector3> vertex_arr = arr[ArrayMesh::ARRAY_VERTEX];
+			int32_t vertex_length = vertex_arr.size();
 			vertex_arr.resize(vertex_length);
 			for (int32_t i = 0; i < vertex_length; i++) {
-				vertex_arr.write[i] = Vector3(-1, 1, -1) * src_vertex_arr[i];
+				vertex_arr.write[i] = Vector3(-1, 1, -1) * vertex_arr[i];
 			}
-			Vector<Vector3> normal_arr;
+			Vector<Vector3> normal_arr = arr[ArrayMesh::ARRAY_NORMAL];
 			normal_arr.resize(vertex_length);
-			Vector<Vector3> src_normal_arr = arr[ArrayMesh::ARRAY_NORMAL];
 			if (Variant(arr[ArrayMesh::ARRAY_NORMAL]).get_type() == Variant::Type::PACKED_VECTOR3_ARRAY) {
 				for (int32_t i = 0; i < vertex_length; i++) {
-					normal_arr.write[i] = Vector3(-1, 1, -1) * src_normal_arr[i];
+					normal_arr.write[i] = Vector3(-1, 1, -1) * normal_arr[i];
 				}
 			}
 			arr[ArrayMesh::ARRAY_VERTEX] = vertex_arr;
@@ -984,13 +982,9 @@ public:
 				tangarr.resize(vertex_length * 4);
 				tangarr.fill(0);
 				Vector<float> src_tangarr = arr[ArrayMesh::ARRAY_TANGENT];
-				for (int32_t i = 0; i < vertex_length * 4; i++) {
-					ERR_BREAK(i * 4 + 0 >= src_tangarr.size());
-					ERR_BREAK(i * 4 + 2 >= src_tangarr.size());
-					float tangent_0 = -src_tangarr[i * 4 + 0];
-					float tangent_2 = -src_tangarr[i * 4 + 2];
-					ERR_BREAK(i * 4 + 0 >= tangarr.size());
-					ERR_BREAK(i * 4 + 2 >= tangarr.size());
+				for (int32_t i = 0; i < vertex_length; i++) {
+					float tangent_0 = -tangarr[i * 4 + 0];
+					float tangent_2 = -tangarr[i * 4 + 2];
 					tangarr.write[i * 4 + 0] = tangent_0;
 					tangarr.write[i * 4 + 2] = tangent_2;
 				}
@@ -999,36 +993,27 @@ public:
 			for (int32_t bsidx = 0; bsidx < bsarr.size(); bsidx++) {
 				Array blend_shape_mesh_array;
 				blend_shape_mesh_array.resize(ArrayMesh::ARRAY_MAX);
-				Vector<Vector3> vertex_arr;
-				Vector<Vector3> src_vertarr = arr[ArrayMesh::ARRAY_VERTEX];
-				vertex_arr.resize(src_vertarr.size());
-				for (int32_t i = 0; i < src_vertarr.size(); i++) {
-					Vector3 vertex = src_vertarr[i];
+				Vector<Vector3> vertex_arr = arr[ArrayMesh::ARRAY_VERTEX];
+				for (int32_t i = 0; i < vertex_arr.size(); i++) {
+					Vector3 vertex = vertex_arr[i];
 					vertex_arr.write[i] = Vector3(-1, 1, -1) * vertex;
 				}
 				blend_shape_mesh_array[ArrayMesh::ARRAY_VERTEX] = vertex_arr;
 				if (Variant(blend_shape_mesh_array[ArrayMesh::ARRAY_NORMAL]).get_type() == Variant::Type::PACKED_VECTOR3_ARRAY) {
-					Vector<Vector3> normal_arr;
-					Vector<Vector3> src_normal_arr = arr[ArrayMesh::ARRAY_NORMAL];
-					normal_arr.resize(src_normal_arr.size());
-					for (int32_t i = 0; i < src_normal_arr.size(); i++) {
-						Vector3 normal = src_normal_arr[i];
+					Vector<Vector3> normal_arr = arr[ArrayMesh::ARRAY_NORMAL];
+					for (int32_t i = 0; i < vertex_length; i++) {
+						Vector3 normal = normal_arr[i];
 						normal_arr.write[i] = Vector3(-1, 1, -1) * normal;
 					}
 					blend_shape_mesh_array[ArrayMesh::ARRAY_NORMAL] = normal_arr;
 				}
 				if (Variant(blend_shape_mesh_array[ArrayMesh::ARRAY_TANGENT]).get_type() == Variant::Type::PACKED_FLOAT32_ARRAY) {
-					Vector<float> src_tangent_arr = arr[ArrayMesh::ARRAY_TANGENT];
-					Vector<float> tangent_arr;
-					tangent_arr.resize(vertex_arr.size() * 4);
+					Vector<float> tangent_arr = arr[ArrayMesh::ARRAY_TANGENT];
+					tangent_arr.resize(vertex_length * 4);
 					tangent_arr.fill(0);
-					for (int32_t i = 0; i < tangent_arr.size(); i++) {
-						ERR_BREAK(i * 4 + 0 >= src_tangent_arr.size());
-						ERR_BREAK(i * 4 + 2 >= src_tangent_arr.size());
-						float tangent_0 = -src_tangent_arr[i * 4 + 0];
-						float tangent_2 = -src_tangent_arr[i * 4 + 2];
-						ERR_BREAK(i * 4 + 0 >= tangent_arr.size());
-						ERR_BREAK(i * 4 + 2 >= tangent_arr.size());
+					for (int32_t i = 0; i < vertex_length; i++) {
+						float tangent_0 = -tangent_arr[i * 4 + 0];
+						float tangent_2 = -tangent_arr[i * 4 + 2];
 						tangent_arr.write[i * 4 + 0] = tangent_0;
 						tangent_arr.write[i * 4 + 2] = tangent_2;
 					}
@@ -1046,8 +1031,9 @@ public:
 			surf_data["mat"] = mat;
 			surf_data_by_mesh.push_back(surf_data);
 		}
-		mesh->clear();
-		for (String blend_name : blendshapes) {
+		mesh.instantiate();
+		for (int32_t blend_i = 0; blend_i < blendshapes.size(); blend_i++) {
+			String blend_name = blendshapes[blend_i];
 			mesh->add_blend_shape(blend_name);
 		}
 		for (int32_t surf_idx = 0; surf_idx < surf_count; surf_idx++) {
@@ -1147,7 +1133,6 @@ public:
 		rotate_scene_180_inner(p_scene, mesh_set, skin_set);
 		for (int32_t mesh_i = 0; mesh_i < mesh_set.keys().size(); mesh_i++) {
 			Ref<ImporterMesh> mesh = mesh_set.keys()[mesh_i];
-			Array values = mesh_set.values();
 			adjust_mesh_zforward(mesh);
 		}
 		for (int32_t skin_i = 0; skin_i < skin_set.keys().size(); skin_i++) {
