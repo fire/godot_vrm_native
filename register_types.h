@@ -1155,20 +1155,25 @@ public:
 		return orig_mat;
 	}
 
-	// func _vrm_get_texture_info(gltf_images: Array, vrm_mat_props: Dictionary, unity_tex_name: String) -> Dictionary:
-	// 	var texture_info: Dictionary = {}
-	// 	texture_info["tex"] = null
-	// 	texture_info["offset"] = Vector3(0.0, 0.0, 0.0)
-	// 	texture_info["scale"] = Vector3(1.0, 1.0, 1.0)
-	// 	if vrm_mat_props["textureProperties"].has(unity_tex_name):
-	// 		var mainTexId: int = vrm_mat_props["textureProperties"][unity_tex_name]
-	// 		var mainTexImage: Texture2D = gltf_images[mainTexId]
-	// 		texture_info["tex"] = mainTexImage
-	// 	if vrm_mat_props["vectorProperties"].has(unity_tex_name):
-	// 		var offsetScale: Array = vrm_mat_props["vectorProperties"][unity_tex_name]
-	// 		texture_info["offset"] = Vector3(offsetScale[0], offsetScale[1], 0.0)
-	// 		texture_info["scale"] = Vector3(offsetScale[2], offsetScale[3], 1.0)
-	// 	return texture_info
+	Dictionary _vrm_get_texture_info(Array gltf_images, Dictionary vrm_mat_props, String tex_name) {
+		Dictionary texture_info;
+		texture_info["tex"] = Variant();
+		texture_info["offset"] = Vector3(0.0, 0.0, 0.0);
+		texture_info["scale"] = Vector3(1.0, 1.0, 1.0);
+		Dictionary textureProperties = vrm_mat_props["textureProperties"];
+		if (textureProperties.has(tex_name)) {
+			int mainTexId = textureProperties[tex_name];
+			Ref<Texture2D> mainTexImage = gltf_images[mainTexId];
+			texture_info["tex"] = mainTexImage;
+		}
+		Dictionary vectorProperties = vrm_mat_props["vectorProperties"];
+		if (vectorProperties.has(tex_name)) {
+			Array offsetScale = vectorProperties[tex_name];
+			texture_info["offset"] = Vector3(offsetScale[0], offsetScale[1], 0.0);
+			texture_info["scale"] = Vector3(offsetScale[2], offsetScale[3], 1.0);
+		}
+		return texture_info;
+	}
 
 	float _vrm_get_float(Dictionary vrm_mat_props, String key, float def) {
 		Dictionary floatProperties = vrm_mat_props["floatProperties"];
@@ -1178,112 +1183,114 @@ public:
 		return floatProperties[key];
 	}
 
-	// func _process_vrm_material(orig_mat: StandardMaterial3D, gltf_images: Array, vrm_mat_props: Dictionary) -> Material:
-	// 	var vrm_shader_name:String = vrm_mat_props["shader"]
-	// 	if vrm_shader_name == "VRM_USE_GLTFSHADER":
-	// 		return orig_mat # It's already correct!
+	Ref<Material> _process_vrm_material(Ref<StandardMaterial3D> orig_mat, Array gltf_images, Dictionary vrm_mat_props) {
+		String vrm_shader_name = vrm_mat_props["shader"];
+		if (vrm_shader_name == "VRM_USE_GLTFSHADER") {
+			return orig_mat; // It's already correct!
+		}
+		if (vrm_shader_name == "Standard" || vrm_shader_name == "UniGLTF/UniUnlit") {
+			ERR_PRINT("Unsupported legacy VRM shader " + vrm_shader_name + " on material " + String(orig_mat->get_name()));
+			return orig_mat;
+		}
 
-	// 	if (vrm_shader_name == "Standard" or
-	// 		vrm_shader_name == "UniGLTF/UniUnlit"):
-	// 		printerr("Unsupported legacy VRM shader " + vrm_shader_name + " on material " + str(orig_mat.resource_name))
-	// 		return orig_mat
+		// 	var maintex_info: Dictionary = _vrm_get_texture_info(gltf_images, vrm_mat_props, "_MainTex")
 
-	// 	var maintex_info: Dictionary = _vrm_get_texture_info(gltf_images, vrm_mat_props, "_MainTex")
+		// 	if (vrm_shader_name == "VRM/UnlitTransparentZWrite" or vrm_shader_name == "VRM/UnlitTransparent" or
+		// 			vrm_shader_name == "VRM/UnlitTexture" or vrm_shader_name == "VRM/UnlitCutout"):
+		// 		if maintex_info["tex"] != null:
+		// 			orig_mat.albedo_texture = maintex_info["tex"]
+		// 			orig_mat.uv1_offset = maintex_info["offset"]
+		// 			orig_mat.uv1_scale = maintex_info["scale"]
+		// 		orig_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		// 		if vrm_shader_name == "VRM/UnlitTransparentZWrite":
+		// 			orig_mat.depth_draw_mode = StandardMaterial3D.DEPTH_DRAW_ALWAYS
+		// 		orig_mat.no_depth_test = false
+		// 		if vrm_shader_name == "VRM/UnlitTransparent" or vrm_shader_name == "VRM/UnlitTransparentZWrite":
+		// 			orig_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		// 			orig_mat.blend_mode = StandardMaterial3D.BLEND_MODE_MIX
+		// 		if vrm_shader_name == "VRM/UnlitCutout":
+		// 			orig_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+		// 			orig_mat.alpha_scissor_threshold = _vrm_get_float(vrm_mat_props, "_Cutoff", 0.5)
+		// 		return orig_mat
 
-	// 	if (vrm_shader_name == "VRM/UnlitTransparentZWrite" or vrm_shader_name == "VRM/UnlitTransparent" or
-	// 			vrm_shader_name == "VRM/UnlitTexture" or vrm_shader_name == "VRM/UnlitCutout"):
-	// 		if maintex_info["tex"] != null:
-	// 			orig_mat.albedo_texture = maintex_info["tex"]
-	// 			orig_mat.uv1_offset = maintex_info["offset"]
-	// 			orig_mat.uv1_scale = maintex_info["scale"]
-	// 		orig_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	// 		if vrm_shader_name == "VRM/UnlitTransparentZWrite":
-	// 			orig_mat.depth_draw_mode = StandardMaterial3D.DEPTH_DRAW_ALWAYS
-	// 		orig_mat.no_depth_test = false
-	// 		if vrm_shader_name == "VRM/UnlitTransparent" or vrm_shader_name == "VRM/UnlitTransparentZWrite":
-	// 			orig_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	// 			orig_mat.blend_mode = StandardMaterial3D.BLEND_MODE_MIX
-	// 		if vrm_shader_name == "VRM/UnlitCutout":
-	// 			orig_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
-	// 			orig_mat.alpha_scissor_threshold = _vrm_get_float(vrm_mat_props, "_Cutoff", 0.5)
-	// 		return orig_mat
+		// 	if vrm_shader_name != "VRM/MToon":
+		// 		printerr("Unknown VRM shader " + vrm_shader_name + " on material " + str(orig_mat.resource_name))
+		// 		return orig_mat
 
-	// 	if vrm_shader_name != "VRM/MToon":
-	// 		printerr("Unknown VRM shader " + vrm_shader_name + " on material " + str(orig_mat.resource_name))
-	// 		return orig_mat
+		// 	# Enum(Off,0,Front,1,Back,2) _CullMode
 
-	// 	# Enum(Off,0,Front,1,Back,2) _CullMode
+		// 	var outline_width_mode = int(vrm_mat_props["floatProperties"].get("_OutlineWidthMode", 0))
+		// 	var blend_mode = int(vrm_mat_props["floatProperties"].get("_BlendMode", 0))
+		// 	var cull_mode = int(vrm_mat_props["floatProperties"].get("_CullMode", 2))
+		// 	var outl_cull_mode = int(vrm_mat_props["floatProperties"].get("_OutlineCullMode", 1))
+		// 	if cull_mode == int(CullMode.Front) || (outl_cull_mode != int(CullMode.Front) && outline_width_mode != int(OutlineWidthMode.None)):
+		// 		printerr("VRM Material " + str(orig_mat.resource_name) + " has unsupported front-face culling mode: " +
+		// 			str(cull_mode) + "/" + str(outl_cull_mode))
 
-	// 	var outline_width_mode = int(vrm_mat_props["floatProperties"].get("_OutlineWidthMode", 0))
-	// 	var blend_mode = int(vrm_mat_props["floatProperties"].get("_BlendMode", 0))
-	// 	var cull_mode = int(vrm_mat_props["floatProperties"].get("_CullMode", 2))
-	// 	var outl_cull_mode = int(vrm_mat_props["floatProperties"].get("_OutlineCullMode", 1))
-	// 	if cull_mode == int(CullMode.Front) || (outl_cull_mode != int(CullMode.Front) && outline_width_mode != int(OutlineWidthMode.None)):
-	// 		printerr("VRM Material " + str(orig_mat.resource_name) + " has unsupported front-face culling mode: " +
-	// 			str(cull_mode) + "/" + str(outl_cull_mode))
+		// 	var mtoon_shader_base_path = "res://addons/Godot-MToon-Shader/mtoon"
 
-	// 	var mtoon_shader_base_path = "res://addons/Godot-MToon-Shader/mtoon"
+		// 	var godot_outline_shader_name = null
+		// 	if outline_width_mode != int(OutlineWidthMode.None):
+		// 		godot_outline_shader_name = mtoon_shader_base_path + "_outline"
 
-	// 	var godot_outline_shader_name = null
-	// 	if outline_width_mode != int(OutlineWidthMode.None):
-	// 		godot_outline_shader_name = mtoon_shader_base_path + "_outline"
+		// 	var godot_shader_name = mtoon_shader_base_path
+		// 	if blend_mode == int(RenderMode.Opaque) or blend_mode == int(RenderMode.Cutout):
+		// 		# NOTE: Cutout is not separately implemented due to code duplication.
+		// 		if cull_mode == int(CullMode.Off):
+		// 			godot_shader_name = mtoon_shader_base_path + "_cull_off"
+		// 	elif blend_mode == int(RenderMode.Transparent):
+		// 		godot_shader_name = mtoon_shader_base_path + "_trans"
+		// 		if cull_mode == int(CullMode.Off):
+		// 			godot_shader_name = mtoon_shader_base_path + "_trans_cull_off"
+		// 	elif blend_mode == int(RenderMode.TransparentWithZWrite):
+		// 		godot_shader_name = mtoon_shader_base_path + "_trans_zwrite"
+		// 		if cull_mode == int(CullMode.Off):
+		// 			godot_shader_name = mtoon_shader_base_path + "_trans_zwrite_cull_off"
 
-	// 	var godot_shader_name = mtoon_shader_base_path
-	// 	if blend_mode == int(RenderMode.Opaque) or blend_mode == int(RenderMode.Cutout):
-	// 		# NOTE: Cutout is not separately implemented due to code duplication.
-	// 		if cull_mode == int(CullMode.Off):
-	// 			godot_shader_name = mtoon_shader_base_path + "_cull_off"
-	// 	elif blend_mode == int(RenderMode.Transparent):
-	// 		godot_shader_name = mtoon_shader_base_path + "_trans"
-	// 		if cull_mode == int(CullMode.Off):
-	// 			godot_shader_name = mtoon_shader_base_path + "_trans_cull_off"
-	// 	elif blend_mode == int(RenderMode.TransparentWithZWrite):
-	// 		godot_shader_name = mtoon_shader_base_path + "_trans_zwrite"
-	// 		if cull_mode == int(CullMode.Off):
-	// 			godot_shader_name = mtoon_shader_base_path + "_trans_zwrite_cull_off"
+		// 	var godot_shader: Shader = ResourceLoader.load(godot_shader_name + ".gdshader")
+		// 	var godot_shader_outline: Shader = null
+		// 	if godot_outline_shader_name:
+		// 		godot_shader_outline = ResourceLoader.load(godot_outline_shader_name + ".gdshader")
 
-	// 	var godot_shader: Shader = ResourceLoader.load(godot_shader_name + ".gdshader")
-	// 	var godot_shader_outline: Shader = null
-	// 	if godot_outline_shader_name:
-	// 		godot_shader_outline = ResourceLoader.load(godot_outline_shader_name + ".gdshader")
+		Ref<ShaderMaterial> new_mat;
+		new_mat.instantiate();
+		// 	new_mat.resource_name = orig_mat.resource_name
+		// 	new_mat.shader = godot_shader
+		// 	if maintex_info.get("tex", null) != null:
+		// 		new_mat.set_shader_parameter("_MainTex", maintex_info["tex"])
 
-	// 	var new_mat = ShaderMaterial.new()
-	// 	new_mat.resource_name = orig_mat.resource_name
-	// 	new_mat.shader = godot_shader
-	// 	if maintex_info.get("tex", null) != null:
-	// 		new_mat.set_shader_parameter("_MainTex", maintex_info["tex"])
+		// 	new_mat.set_shader_parameter("_MainTex_ST", Plane(
+		// 		maintex_info["scale"].x, maintex_info["scale"].y,
+		// 		maintex_info["offset"].x, maintex_info["offset"].y))
 
-	// 	new_mat.set_shader_parameter("_MainTex_ST", Plane(
-	// 		maintex_info["scale"].x, maintex_info["scale"].y,
-	// 		maintex_info["offset"].x, maintex_info["offset"].y))
+		// 	for param_name in ["_MainTex", "_ShadeTexture", "_BumpMap", "_RimTexture", "_SphereAdd", "_EmissionMap", "_OutlineWidthTexture", "_UvAnimMaskTexture"]:
+		// 		var tex_info: Dictionary = _vrm_get_texture_info(gltf_images, vrm_mat_props, param_name)
+		// 		if tex_info.get("tex", null) != null:
+		// 			new_mat.set_shader_parameter(param_name, tex_info["tex"])
 
-	// 	for param_name in ["_MainTex", "_ShadeTexture", "_BumpMap", "_RimTexture", "_SphereAdd", "_EmissionMap", "_OutlineWidthTexture", "_UvAnimMaskTexture"]:
-	// 		var tex_info: Dictionary = _vrm_get_texture_info(gltf_images, vrm_mat_props, param_name)
-	// 		if tex_info.get("tex", null) != null:
-	// 			new_mat.set_shader_parameter(param_name, tex_info["tex"])
+		// 	for param_name in vrm_mat_props["floatProperties"]:
+		// 		new_mat.set_shader_parameter(param_name, vrm_mat_props["floatProperties"][param_name])
 
-	// 	for param_name in vrm_mat_props["floatProperties"]:
-	// 		new_mat.set_shader_parameter(param_name, vrm_mat_props["floatProperties"][param_name])
+		// 	for param_name in ["_Color", "_ShadeColor", "_RimColor", "_EmissionColor", "_OutlineColor"]:
+		// 		if param_name in vrm_mat_props["vectorProperties"]:
+		// 			var param_val = vrm_mat_props["vectorProperties"][param_name]
+		// 			#### TODO: Use Color
+		// 			### But we want to keep 4.0 compat which does not gamma correct color.
+		// 			var color_param: Plane = Plane(param_val[0], param_val[1], param_val[2], param_val[3])
+		// 			new_mat.set_shader_parameter(param_name, color_param)
 
-	// 	for param_name in ["_Color", "_ShadeColor", "_RimColor", "_EmissionColor", "_OutlineColor"]:
-	// 		if param_name in vrm_mat_props["vectorProperties"]:
-	// 			var param_val = vrm_mat_props["vectorProperties"][param_name]
-	// 			#### TODO: Use Color
-	// 			### But we want to keep 4.0 compat which does not gamma correct color.
-	// 			var color_param: Plane = Plane(param_val[0], param_val[1], param_val[2], param_val[3])
-	// 			new_mat.set_shader_parameter(param_name, color_param)
+		// 	# FIXME: setting _Cutoff to disable cutoff is a bit unusual.
+		// 	if blend_mode == int(RenderMode.Cutout):
+		// 		new_mat.set_shader_parameter("_AlphaCutoutEnable", 1.0)
 
-	// 	# FIXME: setting _Cutoff to disable cutoff is a bit unusual.
-	// 	if blend_mode == int(RenderMode.Cutout):
-	// 		new_mat.set_shader_parameter("_AlphaCutoutEnable", 1.0)
+		// 	if godot_shader_outline != null:
+		// 		var outline_mat = new_mat.duplicate()
+		// 		outline_mat.shader = godot_shader_outline
 
-	// 	if godot_shader_outline != null:
-	// 		var outline_mat = new_mat.duplicate()
-	// 		outline_mat.shader = godot_shader_outline
+		// 		new_mat.next_pass = outline_mat
 
-	// 		new_mat.next_pass = outline_mat
-
-	// 	return new_mat
+		return new_mat;
+	}
 
 	void _update_materials(Dictionary vrm_extension, Ref<GLTFState> gstate) {
 		// 	var images = gstate.get_images()
