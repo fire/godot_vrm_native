@@ -1229,11 +1229,6 @@ public:
 		while (!nodes.is_empty()) {
 			Variant variant_node = nodes.pop_back();
 			Node *this_node = cast_to<Node>(variant_node);
-			BoneAttachment3D *attachment_3d = cast_to<BoneAttachment3D>(this_node);
-			if (attachment_3d) {
-				attachment_3d->scale(Vector3(-1.0f, 0.0f, -1.0f));
-				continue;
-			}
 			ImporterMeshInstance3D *mi = cast_to<ImporterMeshInstance3D>(this_node);
 			if (!mi) {
 				continue;
