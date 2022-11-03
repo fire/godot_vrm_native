@@ -1290,7 +1290,7 @@ public:
 
 	VRMEditorSceneFormatImporter() {
 		FirstPersonParser["Auto"] = FirstPersonFlag::Auto;
-		FirstPersonParser["Both"] =  FirstPersonFlag::Both;
+		FirstPersonParser["Both"] = FirstPersonFlag::Both;
 		FirstPersonParser["FirstPersonOnly"] = FirstPersonFlag::FirstPersonOnly;
 		FirstPersonParser["ThirdPersonOnly"] = FirstPersonFlag::ThirdPersonOnly;
 	}
@@ -1522,10 +1522,6 @@ public:
 		return nullptr;
 	}
 
-	// class SkelBone:
-	// 	var skel: Skeleton3D
-	// 	var bone_name: String
-
 	// # https://github.com/vrm-c/vrm-specification/blob/master/specification/0.0/schema/vrm.humanoid.bone.schema.json
 	// # vrm_extension["humanoid"]["bone"]:
 	// #"enum": ["hips","leftUpperLeg","rightUpperLeg","leftLowerLeg","rightLowerLeg","leftFoot","rightFoot",
@@ -1543,33 +1539,33 @@ public:
 	// # "rightLittleProximal","rightLittleIntermediate","rightLittleDistal", "upperChest"]
 
 	Ref<VRMMeta> _create_meta(Node *root_node, AnimationPlayer *animplayer, Dictionary vrm_extension, Ref<GLTFState> gstate, Skeleton3D *skeleton, Ref<BoneMap> humanBones, Dictionary human_bone_to_idx, TypedArray<Basis> pose_diffs) {
-		// 	var nodes = gstate.get_nodes()
+		TypedArray<GLTFNode> nodes = gstate->get_nodes();
+		NodePath skeletonPath = root_node->get_path_to(skeleton);
+		root_node->set("vrm_skeleton", skeletonPath);
 
-		// 	var skeletonPath: NodePath = root_node.get_path_to(skeleton)
-		// 	root_node.set("vrm_skeleton", skeletonPath)
+		NodePath animPath = root_node->get_path_to(animplayer);
+		root_node->set("vrm_animplayer", animPath);
 
-		// 	var animPath: NodePath = root_node.get_path_to(animplayer)
-		// 	root_node.set("vrm_animplayer", animPath)
+		Dictionary firstperson = vrm_extension["firstPerson"];
+		Vector3 eyeOffset;
 
-		// 	var firstperson = vrm_extension.get("firstPerson", null)
-		// 	var eyeOffset: Vector3;
-
-		// 	if firstperson:
-		// 		# FIXME: Technically this is supposed to be offset relative to the "firstPersonBone"
-		// 		# However, firstPersonBone defaults to Head...
-		// 		# and the semantics of a VR player having their viewpoint out of something which does
-		// 		# not rotate with their head is unclear.
-		// 		# Additionally, the spec schema says this:
-		// 		# "It is assumed that an offset from the head bone to the VR headset is added."
-		// 		# Which implies that the Head bone is used, not the firstPersonBone.
-		// 		var fpboneoffsetxyz = firstperson["firstPersonBoneOffset"] # example: 0,0.06,0
-		// 		eyeOffset = Vector3(fpboneoffsetxyz["x"], fpboneoffsetxyz["y"], fpboneoffsetxyz["z"])
-		// 		if human_bone_to_idx["head"] != -1:
-		// 			eyeOffset = pose_diffs[human_bone_to_idx["head"]] * eyeOffset
+		if (firstperson.size()) {
+			// FIXME: Technically this is supposed to be offset relative to the "firstPersonBone"
+			// However, firstPersonBone defaults to Head...
+			// and the semantics of a VR player having their viewpoint out of something which does
+			// not rotate with their head is unclear.
+			// Additionally, the spec schema says this:
+			// "It is assumed that an offset from the head bone to the VR headset is added."
+			// Which implies that the Head bone is used, not the firstPersonBone.
+			Dictionary fpboneoffsetxyz = firstperson["firstPersonBoneOffset"]; // example: 0,0.06,0
+			eyeOffset = Vector3(fpboneoffsetxyz["x"], fpboneoffsetxyz["y"], fpboneoffsetxyz["z"]);
+			if (int32_t(human_bone_to_idx["head"]) != -1) {
+				eyeOffset = Basis(pose_diffs[int32_t(human_bone_to_idx["head"])]).xform(eyeOffset);
+			}
+		}
 
 		Ref<VRMMeta> vrm_meta;
 		vrm_meta.instantiate();
-		return vrm_meta;
 
 		// 	vrm_meta.resource_name = "CLICK TO SEE METADATA"
 		// 	vrm_meta.exporter_version = vrm_extension.get("exporterVersion", "")
@@ -1596,7 +1592,7 @@ public:
 		// 	vrm_meta.eye_offset = eyeOffset
 		// 	vrm_meta.humanoid_bone_mapping = humanBones
 		// 	vrm_meta.humanoid_skeleton_path = skeletonPath
-		// 	return vrm_meta
+		return vrm_meta;
 	}
 
 	AnimationPlayer *_create_animation_player(AnimationPlayer *animplayer, Dictionary vrm_extension, Ref<GLTFState> gstate, Dictionary human_bone_to_idx, TypedArray<Basis> pose_diffs) {
