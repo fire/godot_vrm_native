@@ -929,7 +929,7 @@ public:
 			Array arr = mesh->get_surface_arrays(surf_idx);
 			String name = mesh->get_surface_name(surf_idx);
 			int32_t bscount = mesh->get_blend_shape_count();
-			Array bsarr;
+			TypedArray<Array> bsarr;
 			for (int32_t bsidx = 0; bsidx < bscount; bsidx++) {
 				bsarr.append(mesh->get_surface_blend_shape_arrays(surf_idx, bsidx));
 			}
@@ -1024,13 +1024,14 @@ public:
 			mesh->add_blend_shape(blend_name);
 		}
 		for (int32_t surf_idx = 0; surf_idx < surf_count; surf_idx++) {
-			int prim = surf_data_by_mesh[surf_idx].get("prim");
-			Array arr = surf_data_by_mesh[surf_idx].get("arr");
-			Array bsarr = surf_data_by_mesh[surf_idx].get("bsarr");
-			Dictionary lods = surf_data_by_mesh[surf_idx].get("lods");
-			int fmt_compress_flags = surf_data_by_mesh[surf_idx].get("fmt_compress_flags");
-			String name = surf_data_by_mesh[surf_idx].get("name");
-			Ref<Material> mat = surf_data_by_mesh[surf_idx].get("mat");
+			Dictionary surface_data = surf_data_by_mesh[surf_idx];
+			int prim = surface_data["prim"];
+			Array arr = surface_data["arr"];
+			TypedArray<Array> bsarr = surface_data["bsarr"];
+			Dictionary lods = surface_data["lods"];
+			int fmt_compress_flags = surface_data["fmt_compress_flags"];
+			String name = surface_data["name"];
+			Ref<Material> mat = surface_data["mat"];
 			mesh->add_surface(Mesh::PrimitiveType(prim), arr, bsarr, lods, mat, name, fmt_compress_flags);
 		}
 	}
@@ -1196,19 +1197,6 @@ public:
 	}
 
 	void apply_rotation(Node *p_base_scene, Skeleton3D *src_skeleton) {
-		{
-			Array nodes = p_base_scene->find_children("*", "BoneAttachment3D");
-			while (!nodes.is_empty()) {
-				Variant variant_node = nodes.pop_back();
-				BoneAttachment3D *attachment_3d = cast_to<BoneAttachment3D>(variant_node);
-				if (!attachment_3d) {
-					continue;
-				}
-				Transform3D transform = ROTATE_180_TRANSFORM * attachment_3d->get_global_transform();
-				attachment_3d->set_global_transform(transform);
-			}
-		}
-
 		// Fix skin.
 		Array nodes = p_base_scene->find_children("*", "ImporterMeshInstance3D");
 		while (!nodes.is_empty()) {
@@ -1246,6 +1234,18 @@ public:
 			src_skeleton->set_bone_pose_position(i, fixed_rest.origin);
 			src_skeleton->set_bone_pose_rotation(i, fixed_rest.basis.get_rotation_quaternion());
 			src_skeleton->set_bone_pose_scale(i, fixed_rest.basis.get_scale());
+		}
+		{
+			Array nodes = p_base_scene->find_children("*", "BoneAttachment3D");
+			while (!nodes.is_empty()) {
+				Variant variant_node = nodes.pop_back();
+				BoneAttachment3D *attachment_3d = cast_to<BoneAttachment3D>(variant_node);
+				if (!attachment_3d) {
+					continue;
+				}
+				Transform3D transform = attachment_3d->get_global_transform() * ROTATE_180_TRANSFORM;
+				attachment_3d->set_global_transform(transform);
+			}
 		}
 	}
 
