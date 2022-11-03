@@ -1129,7 +1129,7 @@ public:
 		}
 		p_node->get_transform() = ROTATE_180_TRANSFORM * p_node->get_transform() * ROTATE_180_TRANSFORM;
 		ImporterMeshInstance3D *importer_mesh_instance_3d = cast_to<ImporterMeshInstance3D>(p_node);
-		if (importer_mesh_instance_3d) {
+		if (importer_mesh_instance_3d && !importer_mesh_instance_3d->get_skeleton_path().is_empty()) {
 			mesh_set[importer_mesh_instance_3d->get_mesh()] = true;
 			if (importer_mesh_instance_3d->get_skin().is_valid()) {
 				skin_set[importer_mesh_instance_3d->get_skin()] = true;
