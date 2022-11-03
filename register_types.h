@@ -1579,35 +1579,89 @@ public:
 				eyeOffset = Basis(pose_diffs[int32_t(human_bone_to_idx["head"])]).xform(eyeOffset);
 			}
 		}
-
 		Ref<VRMMeta> vrm_meta;
 		vrm_meta.instantiate();
+		vrm_meta->set_name("CLICK TO SEE METADATA");
+		if (!vrm_extension.has("exporterVersion")) {
+			vrm_meta->exporter_version = "";
+		} else {
+			vrm_meta->exporter_version = vrm_extension["exporterVersion"];
+		}
+		if (!vrm_extension.has("specVersion")) {
+			vrm_meta->spec_version = "";
+		} else {
+			vrm_meta->spec_version = vrm_extension["specVersion"];
+		}
+		Dictionary vrm_extension_meta;
+		if (vrm_extension.has("meta")) {
+			vrm_extension_meta = vrm_extension["meta"];
+		}
+		// ----
+		vrm_meta->title = "";
+		if (!vrm_extension_meta.has("title")) {
+			vrm_meta->title = vrm_extension_meta["title"];
+		}
+		vrm_meta->version = "";
+		if (vrm_extension_meta.has("version")) {
+			vrm_meta->version = vrm_extension_meta["version"];
+		}
+		vrm_meta->author = "";
+		if (vrm_extension_meta.has("author")) {
+			vrm_meta->author = vrm_extension_meta["author"];
+		}
+		vrm_meta->contact_information = "";
+		if (vrm_extension_meta.has("contactInformation")) {
+			vrm_meta->contact_information = vrm_extension_meta["contactInformation"];
+		}
+		vrm_meta->contact_information = "";
+		if (vrm_extension_meta.has("reference")) {
+			vrm_meta->contact_information = vrm_extension_meta["reference"];
+		}
+		int tex = -1;
+		if (vrm_extension_meta.has("texture")) {
+			tex = vrm_extension_meta["texture"];
+		}
+		if (tex >= 0) {
+			Ref<GLTFTexture> gltftex = gstate->get_textures()[tex];
+			vrm_meta->texture = gstate->get_images()[gltftex->get_src_image()];
+		}
 
-		// 	vrm_meta.resource_name = "CLICK TO SEE METADATA"
-		// 	vrm_meta.exporter_version = vrm_extension.get("exporterVersion", "")
-		// 	vrm_meta.spec_version = vrm_extension.get("specVersion", "")
-		// 	var vrm_extension_meta = vrm_extension.get("meta")
-		// 	if vrm_extension_meta:
-		// 		vrm_meta.title = vrm_extension["meta"].get("title", "")
-		// 		vrm_meta.version = vrm_extension["meta"].get("version", "")
-		// 		vrm_meta.author = vrm_extension["meta"].get("author", "")
-		// 		vrm_meta.contact_information = vrm_extension["meta"].get("contactInformation", "")
-		// 		vrm_meta.reference_information = vrm_extension["meta"].get("reference", "")
-		// 		var tex: int = vrm_extension["meta"].get("texture", -1)
-		// 		if tex >= 0:
-		// 			var gltftex: GLTFTexture = gstate.get_textures()[tex]
-		// 			vrm_meta.texture = gstate.get_images()[gltftex.src_image]
-		// 		vrm_meta.allowed_user_name = vrm_extension["meta"].get("allowedUserName", "")
-		// 		vrm_meta.violent_usage = vrm_extension["meta"].get("violentUssageName", "") # Ussage (sic.) in VRM spec
-		// 		vrm_meta.sexual_usage = vrm_extension["meta"].get("sexualUssageName", "") # Ussage (sic.) in VRM spec
-		// 		vrm_meta.commercial_usage = vrm_extension["meta"].get("commercialUssageName", "") # Ussage (sic.) in VRM spec
-		// 		vrm_meta.other_permission_url = vrm_extension["meta"].get("otherPermissionUrl", "")
-		// 		vrm_meta.license_name = vrm_extension["meta"].get("licenseName", "")
-		// 		vrm_meta.other_license_url = vrm_extension["meta"].get("otherLicenseUrl", "")
+		vrm_meta->allowed_user_name = "";
+		if (vrm_extension_meta.has("allowedUserName")) {
+			vrm_meta->allowed_user_name = vrm_extension_meta["allowedUserName"];
+		}
 
-		// 	vrm_meta.eye_offset = eyeOffset
-		// 	vrm_meta.humanoid_bone_mapping = humanBones
-		// 	vrm_meta.humanoid_skeleton_path = skeletonPath
+		// Ussage (sic.) in VRM spec
+		vrm_meta->violent_usage = "";
+		if (vrm_extension_meta.has("violentUssageName")) {
+			vrm_meta->violent_usage = vrm_extension_meta["violentUssageName"];
+		}
+		// Ussage (sic.) in VRM spec
+		vrm_meta->sexual_usage = "";
+		if (vrm_extension_meta.has("sexualUssageName")) {
+			vrm_meta->sexual_usage = vrm_extension_meta["sexualUssageName"];
+		}
+		// Ussage (sic.) in VRM spec
+		vrm_meta->commercial_usage = "";
+		if (vrm_extension_meta.has("commercialUssageName")) {
+			vrm_meta->commercial_usage = vrm_extension_meta["commercialUssageName"];
+		}
+		vrm_meta->other_permission_url = "";
+		if (vrm_extension_meta.has("otherPermissionUrl")) {
+			vrm_meta->other_permission_url = vrm_extension_meta["otherPermissionUrl"];
+		}
+		vrm_meta->license_name = "";
+		if (vrm_extension_meta.has("licenseName")) {
+			vrm_meta->license_name = vrm_extension_meta["licenseName"];
+		}
+		vrm_meta->other_license_url = "";
+		if (vrm_extension_meta.has("otherLicenseUrl")) {
+			vrm_meta->other_license_url = vrm_extension_meta["otherLicenseUrl"];
+		}
+		// ----
+		vrm_meta->eye_offset = eyeOffset;
+		vrm_meta->humanoid_bone_mapping = humanBones;
+		vrm_meta->humanoid_skeleton_path = skeletonPath;
 		return vrm_meta;
 	}
 
