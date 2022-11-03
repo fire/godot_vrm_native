@@ -41,13 +41,13 @@
 
 #include "register_types.h"
 
-class vrm_constants_class : public RefCounted {
-	GDCLASS(vrm_constants_class, RefCounted);
+class VRMConstants : public RefCounted {
+	GDCLASS(VRMConstants, RefCounted);
 
 public:
 	Dictionary vrm_to_human_bone;
 
-	vrm_constants_class(bool is_vrm_0) {
+	VRMConstants(bool is_vrm_0) {
 		vrm_to_human_bone["hips"] = "Hips";
 		vrm_to_human_bone["spine"] = "Spine";
 		vrm_to_human_bone["chest"] = "Chest";
@@ -2093,10 +2093,10 @@ public:
 		Node *original_root_node = gltf->generate_scene(gstate, 30);
 		original_root_node->replace_by(root_node, true);
 		original_root_node->queue_free();
-		bool is_vrm_0 = true;
 		Dictionary gltf_json = gstate->get_json();
 		Dictionary extension = gltf_json["extensions"];
 		Dictionary vrm_extension = extension["VRM"];
+		bool is_vrm_0 = vrm_extension["specVersion"] == "0.0";
 		Dictionary human_bone_to_idx;
 		// Ignoring in ["humanoid"]: armStretch, legStretch, upperArmTwist
 		// lowerArmTwist, upperLegTwist, lowerLegTwist, feetSpacing,
@@ -2123,7 +2123,7 @@ public:
 		Ref<BoneMap> humanBones;
 		humanBones.instantiate();
 		humanBones->set_profile(memnew(SkeletonProfileHumanoid));
-		vrm_constants_class vrmconst_inst = vrm_constants_class(is_vrm_0); //vrm 0.0
+		VRMConstants vrmconst_inst = VRMConstants(is_vrm_0); //vrm 0.0
 		for (int32_t human_bone_name_i = 0; human_bone_name_i < human_bone_to_idx.keys().size(); human_bone_name_i++) {
 			String human_bone_name = human_bone_to_idx.keys()[human_bone_name_i];
 			int human_bone_idx = human_bone_to_idx[human_bone_name];
@@ -2152,17 +2152,6 @@ public:
 			for (int32_t bone_i = 0; bone_i < skeleton->get_bone_count(); bone_i++) {
 				pose_diffs.append(Basis());
 			}
-		}
-		Array nodes = root_node->find_children("*", "BoneAttachment3D");
-		while (!nodes.is_empty()) {
-			Variant variant_node = nodes.pop_back();
-			BoneAttachment3D *attachment_3d = cast_to<BoneAttachment3D>(variant_node);
-			if (!attachment_3d) {
-				continue;
-			}
-			Transform3D transform = attachment_3d->get_transform();
-			transform.scale(Vector3(-1.0f, 1.0f, -1.0f));
-			attachment_3d->set_transform(transform);
 		}
 		_update_materials(vrm_extension, gstate);
 		AnimationPlayer *animplayer = memnew(AnimationPlayer);
