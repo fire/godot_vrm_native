@@ -1031,13 +1031,14 @@ public:
 			surf_data["mat"] = mat;
 			surf_data_by_mesh.push_back(surf_data);
 		}
+		Mesh::BlendShapeMode blend_shape_mode = mesh->get_blend_shape_mode();
 		mesh.instantiate();
-		mesh->set_blend_shape_mode(Mesh::BlendShapeMode::BLEND_SHAPE_MODE_NORMALIZED);
+		mesh->set_blend_shape_mode(blend_shape_mode);
 		for (int32_t blend_i = 0; blend_i < blendshapes.size(); blend_i++) {
 			String blend_name = blendshapes[blend_i];
 			mesh->add_blend_shape(blend_name);
 		}
-		for (int32_t surf_idx = 0; surf_idx < surf_count; surf_idx++) {
+		for (int32_t surf_idx = 0; surf_idx < surf_data_by_mesh.size(); surf_idx++) {
 			Dictionary surface_data = surf_data_by_mesh[surf_idx];
 			int prim = surface_data["prim"];
 			Array arr = surface_data["arr"];
