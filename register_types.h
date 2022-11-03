@@ -1302,14 +1302,18 @@ public:
 		FirstPersonParser["ThirdPersonOnly"] = FirstPersonFlag::ThirdPersonOnly;
 	}
 
-	// func _process_khr_material(orig_mat: StandardMaterial3D, gltf_mat_props: Dictionary) -> Material:
-	// 	# VRM spec requires support for the KHR_materials_unlit extension.
-	// 	if gltf_mat_props.has("extensions"):
-	// 		# TODO: Implement this extension upstream.
-	// 		if gltf_mat_props["extensions"].has("KHR_materials_unlit"):
-	// 			# TODO: validate that this is sufficient.
-	// 			orig_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	// 	return orig_mat
+	Ref<Material> _process_khr_material(Ref<StandardMaterial3D> orig_mat, Dictionary gltf_mat_props) {
+		// VRM spec requires support for the KHR_materials_unlit extension.
+		if (gltf_mat_props.has("extensions")) {
+			// TODO: Implement this extension upstream.
+			Dictionary extensions = gltf_mat_props["extensions"];
+			if (extensions.has("KHR_materials_unlit")) {
+				// TODO: validate that this is sufficient.
+				orig_mat->set_shading_mode(BaseMaterial3D::ShadingMode::SHADING_MODE_UNSHADED);
+			}
+		}
+		return orig_mat;
+	}
 
 	// func _vrm_get_texture_info(gltf_images: Array, vrm_mat_props: Dictionary, unity_tex_name: String) -> Dictionary:
 	// 	var texture_info: Dictionary = {}
@@ -1326,8 +1330,13 @@ public:
 	// 		texture_info["scale"] = Vector3(offsetScale[2], offsetScale[3], 1.0)
 	// 	return texture_info
 
-	// func _vrm_get_float(vrm_mat_props: Dictionary, key: String, def: float) -> float:
-	// 	return vrm_mat_props["floatProperties"].get(key, def)
+	float _vrm_get_float(Dictionary vrm_mat_props, String key, float def) {
+		Dictionary floatProperties = vrm_mat_props["floatProperties"];
+		if (!floatProperties.has(key)) {
+			return def;
+		}
+		return floatProperties[key];
+	}
 
 	// func _process_vrm_material(orig_mat: StandardMaterial3D, gltf_images: Array, vrm_mat_props: Dictionary) -> Material:
 	// 	var vrm_shader_name:String = vrm_mat_props["shader"]
