@@ -110,13 +110,13 @@ public:
 		}
 	}
 };
-
+class VRMMeta;
 class VRMTopLevel : public Node3D {
 	GDCLASS(VRMTopLevel, Node3D);
 	NodePath vrm_skeleton;
 	NodePath vrm_animplayer;
 	NodePath vrm_secondary;
-	Ref<Resource> vrm_meta;
+	Ref<VRMMeta> vrm_meta;
 	bool update_secondary_fixed = false;
 	bool update_in_editor = false;
 	bool gizmo_spring_bone = false;
@@ -141,10 +141,10 @@ public:
 	void set_vrm_secondary(NodePath p_path) {
 		vrm_secondary = p_path;
 	}
-	Ref<Resource> get_vrm_meta() {
+	Ref<VRMMeta> get_vrm_meta() {
 		return vrm_meta;
 	}
-	void set_vrm_meta(Ref<Resource> p_meta) {
+	void set_vrm_meta(Ref<VRMMeta> p_meta) {
 		vrm_meta = p_meta;
 	}
 	bool get_update_secondary_fixed() {
@@ -177,6 +177,8 @@ protected:
 		ClassDB::bind_method(D_METHOD("set_vrm_animplayer"), &VRMTopLevel::set_vrm_animplayer);
 		ClassDB::bind_method(D_METHOD("get_vrm_secondary"), &VRMTopLevel::get_vrm_secondary);
 		ClassDB::bind_method(D_METHOD("set_vrm_secondary"), &VRMTopLevel::set_vrm_secondary);
+		ClassDB::bind_method(D_METHOD("get_vrm_meta"), &VRMTopLevel::get_vrm_meta);
+		ClassDB::bind_method(D_METHOD("set_vrm_meta"), &VRMTopLevel::set_vrm_meta);
 		ClassDB::bind_method(D_METHOD("get_update_secondary_fixed"), &VRMTopLevel::get_update_secondary_fixed);
 		ClassDB::bind_method(D_METHOD("set_update_secondary_fixed"), &VRMTopLevel::set_update_secondary_fixed);
 		ClassDB::bind_method(D_METHOD("get_update_in_editor"), &VRMTopLevel::get_update_in_editor);
@@ -187,7 +189,7 @@ protected:
 		ADD_PROPERTY(PropertyInfo(Variant::NODE_PATH, "vrm_skeleton"), "set_vrm_skeleton", "get_vrm_skeleton");
 		ADD_PROPERTY(PropertyInfo(Variant::NODE_PATH, "vrm_animplayer"), "set_vrm_animplayer", "get_vrm_animplayer");
 		ADD_PROPERTY(PropertyInfo(Variant::NODE_PATH, "vrm_secondary"), "set_vrm_secondary", "get_vrm_secondary");
-		ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "vrm_meta", PROPERTY_HINT_RESOURCE_TYPE, "Resource"), "set_vrm_secondary", "get_vrm_secondary");
+		ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "vrm_meta", PROPERTY_HINT_RESOURCE_TYPE, "VRMMeta"), "set_vrm_meta", "get_vrm_meta");
 		ADD_PROPERTY(PropertyInfo(Variant::BOOL, "update_secondary_fixed"), "set_update_secondary_fixed", "get_update_secondary_fixed");
 		ADD_PROPERTY(PropertyInfo(Variant::BOOL, "update_in_editor"), "set_update_in_editor", "get_update_in_editor");
 		ADD_PROPERTY(PropertyInfo(Variant::BOOL, "gizmo_spring_bone"), "set_gizmo_spring_bone", "get_gizmo_spring_bone");
@@ -2164,7 +2166,7 @@ public:
 		root_node->add_child(animplayer, true);
 		animplayer->set_owner(root_node);
 		_create_animation_player(animplayer, vrm_extension, gstate, human_bone_to_idx, pose_diffs);
-		Ref<Resource> vrm_meta = _create_meta(root_node, animplayer, vrm_extension, gstate, skeleton, humanBones, human_bone_to_idx, pose_diffs);
+		Ref<VRMMeta> vrm_meta = _create_meta(root_node, animplayer, vrm_extension, gstate, skeleton, humanBones, human_bone_to_idx, pose_diffs);
 		root_node->set_vrm_meta(vrm_meta);
 		root_node->set_vrm_secondary(NodePath());
 		if (!vrm_extension.has("secondaryAnimation")) {
