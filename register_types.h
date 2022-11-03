@@ -1250,8 +1250,8 @@ public:
 				if (!attachment_3d) {
 					continue;
 				}
-				Transform3D transform = attachment_3d->get_global_transform() * ROTATE_180_TRANSFORM;
-				attachment_3d->set_global_transform(transform);
+				Transform3D transform = attachment_3d->get_transform() * ROTATE_180_TRANSFORM;
+				attachment_3d->set_transform(transform);
 			}
 		}
 	}
