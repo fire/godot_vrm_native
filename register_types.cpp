@@ -48,6 +48,7 @@ void initialize_vrm_module(ModuleInitializationLevel p_level) {
 	if (p_level == MODULE_INITIALIZATION_LEVEL_SERVERS) {
 		GDREGISTER_CLASS(VRMEditorSceneFormatImporter);
 		GDREGISTER_CLASS(VRMEditorPlugin);
+		GDREGISTER_CLASS(VRMTopLevel);
 		EditorNode::add_init_callback(_editor_init);
 	}
 	//#endif

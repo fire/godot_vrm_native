@@ -1989,6 +1989,7 @@ public:
 		Node *original_root_node = gltf->generate_scene(gstate, 30);
 		VRMTopLevel *root_node = memnew(VRMTopLevel);
 		original_root_node->replace_by(root_node, true);
+		original_root_node->queue_free();
 		bool is_vrm_0 = true;
 		Dictionary gltf_json = gstate->get_json();
 		Dictionary extension = gltf_json["extensions"];
