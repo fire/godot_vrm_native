@@ -1923,53 +1923,80 @@ public:
 		// 	secondary_node.set("spring_bones", spring_bones)
 		// 	secondary_node.set("collider_groups", collider_groups)
 	}
-	// func _add_joints_recursive(new_joints_set: Dictionary, gltf_nodes: Array, bone: int, include_child_meshes: bool=false) -> void:
-	// 	if bone < 0:
-	// 		return
-	// 	var gltf_node: Dictionary = gltf_nodes[bone]
-	// 	if not include_child_meshes and gltf_node.get("mesh", -1) != -1:
-	// 		return
-	// 	new_joints_set[bone] = true
-	// 	for child_node in gltf_node.get("children", []):
-	// 		if not new_joints_set.has(child_node):
-	// 			_add_joints_recursive(new_joints_set, gltf_nodes, int(child_node))
+	void _add_joints_recursive(Dictionary new_joints_set, Array gltf_nodes, int bone, bool include_child_meshes = false) {
+		if (bone < 0) {
+			return;
+		}
+		Dictionary gltf_node = gltf_nodes[bone];
+		if (!include_child_meshes && int32_t(gltf_node["mesh"]) != -1) {
+			return;
+		}
+		new_joints_set[bone] = true;
+		Array children = gltf_node["children"];
+		for (int32_t child_i = 0; child_i < children.size(); child_i++) {
+			int32_t child_node = children[child_i];
+			if (!new_joints_set.has(child_node)) {
+				_add_joints_recursive(new_joints_set, gltf_nodes, int(child_node));
+			}
+		}
+	}
 
-	// func _add_joint_set_as_skin(obj: Dictionary, new_joints_set: Dictionary) -> void:
-	// 	var new_joints = [].duplicate()
-	// 	for node in new_joints_set:
-	// 		new_joints.push_back(node)
-	// 	new_joints.sort()
+	void _add_joint_set_as_skin(Dictionary obj, Dictionary new_joints_set) {
+		Array new_joints;
+		Array new_joins_set_keys = new_joints_set.keys();
+		for (int32_t key_i = 0; key_i < new_joins_set_keys.size(); key_i++) {
+			Variant new_joints_set_key = new_joins_set_keys[key_i];
+			GLTFNodeIndex node = new_joints_set[new_joints_set_key];
+			new_joints.push_back(node);
+		}
+		new_joints.sort();
+		Dictionary new_skin;
+		new_skin["joints"] = new_joints;
+		Array skins;
+		if (obj.has("skins")) {
+			skins.push_back(new_skin);
+		}
+		obj["skins"] = skins;
+	}
 
-	// 	var new_skin: Dictionary = {"joints": new_joints}
+	bool _add_vrm_nodes_to_skin(Dictionary &obj) {
+		Dictionary vrm_extension = obj.get("extensions", {}).get("VRM", {});
+		if (!vrm_extension.has("humanoid")) {
+			return false;
+		}
+		Dictionary new_joints_set;
+		Dictionary secondaryAnimation = vrm_extension.get("secondaryAnimation", {});
+		Array bone_groups = secondaryAnimation["boneGroups"];
+		for (int32_t bone_group_i = 0; bone_group_i < bone_groups.size(); bone_group_i++) {
+			Dictionary bone_group = bone_groups[bone_group_i];
+			Array bones = bone_group["bones"];
+			for (int32_t bone_i = 0; bone_i < bones.size(); bone_i++) {
+				int32_t bone = bones[bone_i];
+				_add_joints_recursive(new_joints_set, obj["nodes"], bone, true);
+			}
+		}
+		Array collider_groups = secondaryAnimation["colliderGroups"];
+		for (int32_t collider_group_i = 0; collider_group_i < collider_groups.size(); collider_group_i++) {
+			Dictionary collider_group = collider_groups[collider_group_i];
+			if (int32_t(collider_group["node"]) >= 0) {
+				new_joints_set[int32_t(collider_group["node"])] = true;
+			}
+		}
 
-	// 	if not obj.has("skins"):
-	// 		obj["skins"] = [].duplicate()
+		Dictionary firstPerson = vrm_extension["firstPerson"];
+		if (int32_t(firstPerson["firstPersonBone"]) >= 0) {
+			new_joints_set[int32_t(firstPerson["firstPersonBone"])] = true;
+		}
+		Dictionary humanoid = vrm_extension["humanoid"];
+		Dictionary human_bone = humanoid["humanBones"];
+		Array human_bone_keys = human_bone.keys();
 
-	// 	obj["skins"].push_back(new_skin)
+		for (int32_t key_i = 0; key_i < human_bone_keys.size(); key_i++) {
+			Dictionary human_bone = human_bone_keys[key_i];
+			_add_joints_recursive(new_joints_set, obj["nodes"], int32_t(human_bone["node"]), false);
+		}
 
-	bool _add_vrm_nodes_to_skin(Dictionary obj) {
-		// 	var vrm_extension: Dictionary = obj.get("extensions", {}).get("VRM", {})
-		// 	if not vrm_extension.has("humanoid"):
-		// 		return false
-		// 	var new_joints_set = {}.duplicate()
-
-		// 	var secondaryAnimation = vrm_extension.get("secondaryAnimation", {})
-		// 	for bone_group in secondaryAnimation.get("boneGroups", []):
-		// 		for bone in bone_group["bones"]:
-		// 			_add_joints_recursive(new_joints_set, obj["nodes"], int(bone), true)
-
-		// 	for collider_group in secondaryAnimation.get("colliderGroups", []):
-		// 		if int(collider_group["node"]) >= 0:
-		// 			new_joints_set[int(collider_group["node"])] = true
-
-		// 	var firstPerson = vrm_extension.get("firstPerson", {})
-		// 	if firstPerson.get("firstPersonBone", -1) >= 0:
-		// 		new_joints_set[int(firstPerson["firstPersonBone"])] = true
-
-		// 	for human_bone in vrm_extension["humanoid"]["humanBones"]:
-		// 		_add_joints_recursive(new_joints_set, obj["nodes"], int(human_bone["node"]), false)
-
-		// 	_add_joint_set_as_skin(obj, new_joints_set)
+		_add_joint_set_as_skin(obj, new_joints_set);
 		return true;
 	}
 
