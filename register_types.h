@@ -1992,7 +1992,7 @@ public:
 		// 	secondary_node.set("spring_bones", spring_bones)
 		// 	secondary_node.set("collider_groups", collider_groups)
 	}
-	void _add_joints_recursive(Dictionary new_joints_set, Array gltf_nodes, int bone, bool include_child_meshes = false) {
+	void _add_joints_recursive(Dictionary &new_joints_set, Array gltf_nodes, int bone, bool include_child_meshes = false) {
 		if (bone < 0) {
 			return;
 		}
@@ -2010,7 +2010,7 @@ public:
 		}
 	}
 
-	void _add_joint_set_as_skin(Dictionary obj, Dictionary new_joints_set) {
+	void _add_joint_set_as_skin(Dictionary &obj, Dictionary &new_joints_set) {
 		Array new_joints;
 		Array new_joins_set_keys = new_joints_set.keys();
 		for (int32_t key_i = 0; key_i < new_joins_set_keys.size(); key_i++) {
@@ -2089,6 +2089,7 @@ public:
 			print_error("Failed to find required VRM keys in json");
 			return nullptr;
 		}
+		gstate->set_json(gltf_json_parsed);
 		VRMTopLevel *root_node = memnew(VRMTopLevel);
 		Node *original_root_node = gltf->generate_scene(gstate, 30);
 		original_root_node->replace_by(root_node, true);
