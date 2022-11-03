@@ -1032,6 +1032,7 @@ public:
 			surf_data_by_mesh.push_back(surf_data);
 		}
 		mesh.instantiate();
+		mesh->set_blend_shape_mode(Mesh::BlendShapeMode::BLEND_SHAPE_MODE_NORMALIZED);
 		for (int32_t blend_i = 0; blend_i < blendshapes.size(); blend_i++) {
 			String blend_name = blendshapes[blend_i];
 			mesh->add_blend_shape(blend_name);
