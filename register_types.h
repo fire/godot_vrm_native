@@ -62,7 +62,7 @@ public:
 	// VRM extension is for 3d humanoid avatars (and models) in VR applications.
 	// Meta schema:
 
-	//Title of VRM model
+	// The title of the VRM model.
 	String title;
 	void set_title(String p_title) {
 		title = p_title;
@@ -71,7 +71,7 @@ public:
 		return title;
 	}
 
-	//Version of VRM model
+	// The version of the VRM model.
 	String version;
 	void set_version(String p_version) {
 		version = p_version;
@@ -80,42 +80,48 @@ public:
 		return version;
 	}
 
-	//Author of VRM model
+	// The author of VRM model
 	String author;
 
-	//Contact Information of VRM model author
+	// The contact Information of the VRM model author
 	String contact_information;
 
-	//Reference of VRM model
+	// The reference of the VRM model.
 	String reference_information;
 
-	// Thumbnail of VRM model
+	// The thumbnail of the VRM model
 	Ref<Texture2D> texture;
 
-	//A person who can perform with this avatar
+	// An person who can perform with this avatar.
 	String allowed_user_name;
 	// (String,"","OnlyAuthor","ExplicitlyLicensedPerson","Everyone")
-	//Permission to perform violent acts with this avatar
+
+	// A permission to perform violent acts with this avatar.
 	String violent_usage;
+	
 	// (String,"","Disallow","Allow")
-	//Permission to perform sexual acts with this avatar
+	// A permission to perform sexual acts with this avatar.
 	String sexual_usage;
 	// (String,"","Disallow","Allow")
-	//For commercial use
+	
+	// For commercial use.
 	String commercial_usage;
 	// (String,"","Disallow","Allow")
-	//If there are any conditions not mentioned above, put the URL link of the license document here.
+
+	// If there are any conditions not mentioned above, put the URL link of the license document here.
 	String other_permission_url;
 
-	//License type
+	// The license type.
 	String license_name;
 	// (String,"","Redistribution_Prohibited","CC0","CC_BY","CC_BY_NC","CC_BY_SA","CC_BY_NC_SA","CC_BY_ND","CC_BY_NC_ND","Other")
-	//If "Other" is selected, put the URL link of the license document here.
+	
+	// If "Other" is selected, put the URL link of the license document here.
 	String other_license_url;
 
-	//Human bone name -> Reference node index
-	//NOTE: We are currently discarding all Unity-specific data.
-	//We may need to store it somewhere in case we wish to re-export.
+	// Human bone name -> Reference node index
+	
+	// NOTE: We are currently discarding all Unity-specific data.
+	// We may need to store it somewhere in case we wish to re-export.
 	Ref<BoneMap> humanoid_bone_mapping; // VRM boneName -> bone name (within skeleton)
 
 	NodePath humanoid_skeleton_path;
